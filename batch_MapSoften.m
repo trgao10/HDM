@@ -4,7 +4,7 @@ path(pathdef);
 addpath(path,genpath([pwd '/utils/']));
 
 %%% setup parameter
-augParam = 1.5;
+FibrEps = 1e-3;
 
 %%% setup paths
 base_path = [pwd '/'];
@@ -41,8 +41,8 @@ for TAXAind1 = 1:GroupSize
         %%% load mesh faces and vertices
         G1 = load([sample_path taxa_code{TAXAind1} '.mat']); G1 = G1.G;
         G2 = load([sample_path taxa_code{TAXAind2} '.mat']); G2 = G2.G;        
-        [~,~,AugKernel12,~] = MapSoftenKernel(TextureCoords1,TextureCoords2,G2.F,G1.V,G2.V,'auto',augParam);
-        [~,~,AugKernel21,~] = MapSoftenKernel(TextureCoords2,TextureCoords1,G1.F,G2.V,G1.V,'auto',augParam);
+        [~,~,AugKernel12,~] = MapSoftenKernel(TextureCoords1,TextureCoords2,G2.F,G1.V,G2.V,FibrEps);
+        [~,~,AugKernel21,~] = MapSoftenKernel(TextureCoords2,TextureCoords1,G1.F,G2.V,G1.V,FibrEps);
         cPSoftMapsMatrix{TAXAind1,TAXAind2} = max(AugKernel12,AugKernel21');
         cPSoftMapsMatrix{TAXAind2,TAXAind1} = cPSoftMapsMatrix{TAXAind1,TAXAind2}';
     end
