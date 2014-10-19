@@ -1,18 +1,18 @@
-%%% preparation
+%% preparation
 close all;
 path(pathdef);
 addpath(path,genpath([pwd '/utils/']));
 
-%%% setup parameter
+%% setup parameter
 BaseEps = 0.03;
 FibrEps = 1e-3;
 MapType = 'cP';
 GroupLevel = 'Genus';
-GroupNames = {'Purgatorius'};
-% GroupNames = {'Purgatorius','Pronothodectes'};
+% GroupNames = {'Purgatorius'};
+GroupNames = {'Purgatorius','Pronothodectes'};
 % GroupNames = {'Purgatorius','Tupaia','Pronothodectes','Varecia'};
 
-%%% setup paths
+%% setup paths
 base_path = [pwd '/'];
 data_path = '../DATA/PNAS/';
 spreadsheet_path = [data_path 'ClassificationTable.xlsx'];
@@ -21,44 +21,61 @@ result_path = '/media/trgao10/Work/MATLAB/ArchivedResults/Teeth/cPDist/';
 TextureCoords1Path = [result_path 'TextureCoords1/'];
 TextureCoords2Path = [result_path 'TextureCoords2/'];
 
-%%% load taxa codes
+%% load taxa codes
 taxa_file = [data_path 'teeth_taxa_table.mat'];
 taxa_code = load(taxa_file);
 taxa_code = taxa_code.taxa_code;
 GroupSize = length(taxa_code);
 ChunkSize = 55;
 
-%%% useful inline functions
+%% useful inline functions
 ChunkIdx = @(TAXAind1,TAXAind2) ceil(((TAXAind1-1)*GroupSize+TAXAind2)/ChunkSize);
 
-%%% parse GroupNames
+%% parse GroupNames
 [~,ClTable,~] = xlsread(spreadsheet_path);
 Names = {};
+NamesByGroup = cell(1,length(GroupNames));
 for j=1:length(GroupNames)
     NamesJ = ClTable(strcmpi(ClTable(1:end,strcmpi(ClTable(1,:),GroupLevel)),GroupNames{j}),1);
     Names = [Names,NamesJ{:}];
+    NamesByGroup{j} = NamesJ;
 end
 
 GroupSize = length(Names);
 DiffMatrixSizeList = zeros(GroupSize,1);
 TAXAinds = zeros(GroupSize,1);
+NamesDelimit = zeros(GroupSize+1,2);
 for j=1:GroupSize
     TAXAinds(j) = find(strcmpi(taxa_code,Names{j}));
     load([sample_path taxa_code{strcmpi(taxa_code,Names{j})} '.mat']);
     DiffMatrixSizeList(j) = G.nV;
+    NamesDelimit(j+1,1) = NamesDelimit(j,2)+1;
+    NamesDelimit(j+1,2) = NamesDelimit(j+1,1)+G.nV-1;
 end
 Names = taxa_code(TAXAinds); % match upper/lower cases
+NamesDelimit(1,:) = [];
+nVList = DiffMatrixSizeList;
+nVListCumsum = cumsum(nVList);
 
-%%% options that control the diffusion eigenvector visualization
+PerGroupSize = zeros(1,length(GroupNames));
+for j=1:length(NamesByGroup)
+    for k=1:length(NamesByGroup{j})
+        NamesByGroup{j}{k} = taxa_code{strcmpi(taxa_code,NamesByGroup{j}{k})};
+    end
+    PerGroupSize(j) = length(NamesByGroup{j});
+end
+CumsumPerGroupSize = cumsum(PerGroupSize);
+
+%% options that control the diffusion eigenvector visualization
 rigid_motions = load([data_path 'cPMSTinitRms.mat']);
 options.R = reshape(rigid_motions.R(TAXAinds,TAXAinds),GroupSize,GroupSize);
 options.sample_path = sample_path;
-options.DisplayLayout = [2,2];
+options.DisplayLayout = [2,4];
 options.DisplayOrient = 'Horizontal';
 options.boundary = 'on';
 options.names = 'off';
 
-%%% process base diffusion
+%% process base diffusion
 load([result_path MapType 'DistMatrix.mat']);
 eval(['BaseDistMatrix = ' MapType 'DistMatrix(TAXAinds,TAXAinds);']);
 BaseWeights = exp(-BaseDistMatrix.^2/BaseEps);
@@ -66,11 +83,17 @@ BaseWeights = BaseWeights - diag(diag(BaseWeights));
 % BaseWeights = diag(1./sum(BaseWeights,2))*BaseWeights;
 % keyboard
 
-%%% build diffusion kernel matrix
+%% build diffusion kernel matrix
 DiffMatrixSize = sum(DiffMatrixSizeList);
 DiffMatrixSizeList = cumsum(DiffMatrixSizeList);
-DiffMatrixSizeList(end) = [];
-DiffMatrixSizeList = [0; DiffMatrixSizeList]; % treated as block shifts
+DiffMatrixSizeList = [0; DiffMatrixSizeList];
+GroupDelimit = zeros(length(GroupNames)+1,2);
+for j=2:(length(GroupNames)+1)
+    GroupDelimit(j,1) = GroupDelimit(j-1,2)+1;
+    GroupDelimit(j,2) = DiffMatrixSizeList(CumsumPerGroupSize(j-1)+1);
+end
+GroupDelimit(1,:) = [];
+DiffMatrixSizeList(end) = []; % treated as block shifts
 DiffMatrixRowIdx = [];
 DiffMatrixColIdx = [];
 DiffMatrixVal = [];
@@ -106,7 +129,7 @@ H = sparse(DiffMatrixRowIdx,DiffMatrixColIdx,DiffMatrixVal,DiffMatrixSize,DiffMa
 clear DiffMatrixColIdx DiffMatrixRowIdx DiffMatrixVal rowIdx colIdx val
 clear TextureCoords1Matrix TextureCoords2Matrix
 
-%%% eigen-decomposition
+%% eigen-decomposition
 sqrtD = sparse(1:DiffMatrixSize,1:DiffMatrixSize,sqrt(sum(H)));
 invD = sparse(1:DiffMatrixSize,1:DiffMatrixSize,1./sum(H));
 sqrtInvD = sparse(1:DiffMatrixSize,1:DiffMatrixSize,1./sqrt(sum(H)));
@@ -142,12 +165,28 @@ disp(['Eigs completed in ' num2str(toc) ' seconds']);
 % ViewBundleFunc(Names,abs(x-stdDistribution)',options);
 
 %==========================================================================
-%%% GMM segmentation
+%%% Visualize Template
 %==========================================================================
-Template = sqrtInvD*U(:,2:50);
-atria = nn_prepare(Template);
-[count, neighbors] = range_search(Template, atria, 1:size(Template,1),0.01,0);
-figure;scatter3(Template(:,1),Template(:,2),Template(:,3),1,'k','filled');
+% Template = sqrtInvD*U(:,2:50);
+% colors = [1,0,0;0,1,0;0,0,1;1,1,0;1,0,1;0,1,1;1,1,1];
+% for j=1:length(GroupNames)
+%     LocalTemplate = Template(GroupDelimit(j,1):GroupDelimit(j,2),:);
+%     [r,~] = find(isinf(LocalTemplate));
+%     LocalTemplate(r,:) = [];
+%     figure;scatter3(LocalTemplate(:,1),LocalTemplate(:,2),LocalTemplate(:,3),1,colors(j,:),'filled');
+% end
+% pause();
+% % atria = nn_prepare(Template);
+% % [count, neighbors] = range_search(Template, atria, 1:size(Template,1),0.01,0);
+% % figure;scatter3(Template(:,1),Template(:,2),Template(:,3),1,'k','filled');
+% T3 = Template(:,1:3);
+% [r,c] = find(isinf(T3));
+% T3(r,:) = [];
+% GM = Mesh('VF',T3',[1;1;1]);
+% options.pointCloud = 1;
+% GM.Write('Template3.off','off',options);
+% pause();
+
 % hold on;
 % [~,Inds] = sort(count);
 % MaxInds = Inds(end-10:end);
@@ -159,11 +198,44 @@ figure;scatter3(Template(:,1),Template(:,2),Template(:,3),1,'k','filled');
 %==========================================================================
 %%% consistent spectral clustering on each surface
 %==========================================================================
-SignVectors = sqrtInvD*U(:,2:5);
+SignVectors = sqrtInvD*U(:,2:10);
 % SignVectors(abs(SignVectors)<1e-10) = 0;
 % SignVectors = sign(SignVectors);
-idx = kmeans(SignVectors,16);
+idx = kmeans(SignVectors,12);
+%%% TODO: some idx might be +/-Inf, since sqrtInvD might contain +/-Inf
+%%% better insert a piece of code here assigning a non-nan label to +/-Inf
+%%% points in idx
+[InfIdx,~] = find(isinf(SignVectors));
+InfIdx = unique(InfIdx);
+for j=1:length(InfIdx)
+    IdxJ = find(nVListCumsum>InfIdx(j),1);
+    NamesJ = Names{IdxJ};
+    load([sample_path NamesJ '.mat']);
+    ValidVList = 1:G.nV;
+    IdxOnG = idx(NamesDelimit(IdxJ,1):NamesDelimit(IdxJ,2));
+    ValidVList(IdxOnG == idx(InfIdx(j))) = [];
+    tmpDistMatrix = pdist2(G.V(:,InfIdx(j)-NamesDelimit(IdxJ,1)+1)',G.V(:,ValidVList)');
+    [~,minInd] = min(tmpDistMatrix);
+    idx(InfIdx(j)) = idx(ValidVList(minInd)+NamesDelimit(IdxJ,1)-1);
+end
 ViewBundleFunc(Names,idx,options);
+pause();
+
+%==========================================================================
+%%% estimate intrinsic dimensionality using multiscale SVD
+%==========================================================================
+EstDimOpts = struct('NumberOfTrials',1,'verbose',0,'MAXDIM',100,...
+                    'MAXAMBDIM',100,'Ptwise',true,'NetsOpts',[],...
+                    'UseSmoothedS',true, 'EnlargeScales',true );
+Template = SignVectors;
+OriginalIdx = 1:size(Template,1);
+Template(InfIdx,:) = [];
+OriginalIdx(InfIdx) = [];
+EstDimOpts.RandomizedSVDThres = min([size(Template,1),size(Template,2),100]);
+[EstDim,EstDimStats,Stats] = EstDim_MSVD(Template', EstDimOpts);
+%%% TODO: write a routine to extract submesh according to specified
+%%% vertices/faces/both
+pause();
 
 %==========================================================================
 %%% view eigenvectors

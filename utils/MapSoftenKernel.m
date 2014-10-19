@@ -24,7 +24,8 @@ nV1 = size(V1,2);
 nV2 = size(V2,2);
 
 TR = triangulation(F2',Coords2');
-[ti,BC] = myPointLocation(TR,Coords1');
+[ti,BC] = pointLocation(TR,Coords1');
+% [ti,BC] = myPointLocation(TR,Coords1');
 NaNInds = find(isnan(ti));
 BaseInds = 1:nV1;
 BaseInds(NaNInds) = [];
