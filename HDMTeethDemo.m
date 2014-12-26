@@ -6,7 +6,7 @@ addpath(path,genpath([pwd '/utils/']));
 %% setup parameter
 BaseEps = 0.03;
 FibrEps = 1e-3;
-MapType = 'cP';
+MapType = 'cPMST';
 GroupLevel = 'Genus';
 % GroupNames = {'Purgatorius'};
 GroupNames = {'Purgatorius','Pronothodectes'};
@@ -17,7 +17,7 @@ base_path = [pwd '/'];
 data_path = '../DATA/PNAS/';
 spreadsheet_path = [data_path 'ClassificationTable.xlsx'];
 sample_path = '../cPdist/samples/Teeth/';
-result_path = '/media/trgao10/Work/MATLAB/ArchivedResults/Teeth/cPDist/';
+result_path = '/media/trgao10/Work/MATLAB/ArchivedResults/Teeth/cPMST/FeatureFixOff/';
 TextureCoords1Path = [result_path 'TextureCoords1/'];
 TextureCoords2Path = [result_path 'TextureCoords2/'];
 
@@ -27,6 +27,13 @@ taxa_code = load(taxa_file);
 taxa_code = taxa_code.taxa_code;
 GroupSize = length(taxa_code);
 ChunkSize = 55;
+
+%% options that control the diffusion eigenvector visualization
+options.sample_path = sample_path;
+options.DisplayLayout = [2,4];
+options.DisplayOrient = 'Horizontal';
+options.boundary = 'on';
+options.names = 'off';
 
 %% useful inline functions
 ChunkIdx = @(TAXAind1,TAXAind2) ceil(((TAXAind1-1)*GroupSize+TAXAind2)/ChunkSize);
@@ -66,18 +73,17 @@ for j=1:length(NamesByGroup)
 end
 CumsumPerGroupSize = cumsum(PerGroupSize);
 
-%% options that control the diffusion eigenvector visualization
+%% collection rigid motions
 rigid_motions = load([data_path 'cPMSTinitRms.mat']);
 options.R = reshape(rigid_motions.R(TAXAinds,TAXAinds),GroupSize,GroupSize);
-options.sample_path = sample_path;
-options.DisplayLayout = [2,4];
-options.DisplayOrient = 'Horizontal';
-options.boundary = 'on';
-options.names = 'off';
 
 %% process base diffusion
 load([result_path MapType 'DistMatrix.mat']);
-eval(['BaseDistMatrix = ' MapType 'DistMatrix(TAXAinds,TAXAinds);']);
+if strcmpi(MapType,'cP')
+    eval(['BaseDistMatrix = ' MapType 'DistMatrix(TAXAinds,TAXAinds);']);
+else
+    eval(['BaseDistMatrix = ImprDistMatrix(TAXAinds,TAXAinds);']);
+end
 BaseWeights = exp(-BaseDistMatrix.^2/BaseEps);
 BaseWeights = BaseWeights - diag(diag(BaseWeights));
 % BaseWeights = diag(1./sum(BaseWeights,2))*BaseWeights;
@@ -178,7 +184,7 @@ disp(['Eigs completed in ' num2str(toc) ' seconds']);
 % pause();
 % % atria = nn_prepare(Template);
 % % [count, neighbors] = range_search(Template, atria, 1:size(Template,1),0.01,0);
-% % figure;scatter3(Template(:,1),Template(:,2),Template(:,3),1,'k','filled');
+% figure;scatter3(Template(:,1),Template(:,2),Template(:,3),1,'k','filled');
 % T3 = Template(:,1:3);
 % [r,c] = find(isinf(T3));
 % T3(r,:) = [];
@@ -198,17 +204,17 @@ disp(['Eigs completed in ' num2str(toc) ' seconds']);
 %==========================================================================
 %%% consistent spectral clustering on each surface
 %==========================================================================
-SignVectors = sqrtInvD*U(:,2:10);
+SignVectors = sqrtInvD*U(:,2:15);
 % SignVectors(abs(SignVectors)<1e-10) = 0;
 % SignVectors = sign(SignVectors);
-idx = kmeans(SignVectors,12);
+idx = kmeans(SignVectors,15,'MaxIter',1000);
 %%% TODO: some idx might be +/-Inf, since sqrtInvD might contain +/-Inf
 %%% better insert a piece of code here assigning a non-nan label to +/-Inf
 %%% points in idx
 [InfIdx,~] = find(isinf(SignVectors));
 InfIdx = unique(InfIdx);
 for j=1:length(InfIdx)
-    IdxJ = find(nVListCumsum>InfIdx(j),1);
+    IdxJ = find(nVListCumsum>=InfIdx(j),1);
     NamesJ = Names{IdxJ};
     load([sample_path NamesJ '.mat']);
     ValidVList = 1:G.nV;
@@ -224,18 +230,18 @@ pause();
 %==========================================================================
 %%% estimate intrinsic dimensionality using multiscale SVD
 %==========================================================================
-EstDimOpts = struct('NumberOfTrials',1,'verbose',0,'MAXDIM',100,...
-                    'MAXAMBDIM',100,'Ptwise',true,'NetsOpts',[],...
-                    'UseSmoothedS',true, 'EnlargeScales',true );
-Template = SignVectors;
-OriginalIdx = 1:size(Template,1);
-Template(InfIdx,:) = [];
-OriginalIdx(InfIdx) = [];
-EstDimOpts.RandomizedSVDThres = min([size(Template,1),size(Template,2),100]);
-[EstDim,EstDimStats,Stats] = EstDim_MSVD(Template', EstDimOpts);
-%%% TODO: write a routine to extract submesh according to specified
-%%% vertices/faces/both
-pause();
+% EstDimOpts = struct('NumberOfTrials',1,'verbose',0,'MAXDIM',100,...
+%                     'MAXAMBDIM',100,'Ptwise',true,'NetsOpts',[],...
+%                     'UseSmoothedS',true, 'EnlargeScales',true );
+% Template = SignVectors;
+% OriginalIdx = 1:size(Template,1);
+% Template(InfIdx,:) = [];
+% OriginalIdx(InfIdx) = [];
+% EstDimOpts.RandomizedSVDThres = min([size(Template,1),size(Template,2),100]);
+% [EstDim,EstDimStats,Stats] = EstDim_MSVD(Template', EstDimOpts);
+% %%% TODO: write a routine to extract submesh according to specified
+% %%% vertices/faces/both
+% pause();
 
 %==========================================================================
 %%% view eigenvectors

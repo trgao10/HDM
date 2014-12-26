@@ -2,6 +2,7 @@
 
 #ifndef CPPONLY
 #include "mex.h"
+
 void retrieve_tree( const mxArray* matptr, KDTree* & tree){
     // retrieve pointer from the MX form
     double* pointer0 = mxGetPr(matptr);
