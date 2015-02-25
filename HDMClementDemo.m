@@ -7,31 +7,26 @@ addpath(path,genpath([pwd '/utils/']));
 BaseEps = 0.03;
 FibrEps = 1e-3;
 MapType = 'cPMST';
-GroupLevel = 'Genus';
-% GroupNames = {'Purgatorius'};
-% GroupNames = {'Purgatorius','Pronothodectes'};
-GroupNames = {'Purgatorius','Tupaia','Pronothodectes','Varecia','Microcebus','Lemur'};
 
 %% setup paths
 base_path = [pwd '/'];
-data_path = '../DATA/PNAS/';
-spreadsheet_path = [data_path 'ClassificationTable.xlsx'];
-sample_path = '../cPdist/samples/Teeth/';
-result_path = '/media/trgao10/Work/MATLAB/ArchivedResults/Teeth/cPMST/FeatureFixOn/';
+data_path = '../DATA/Clement/';
+sample_path = '../cPdist/samples/Clement/';
+result_path = '/media/trgao10/Work/MATLAB/ArchivedResults/Clement/Clement/cPMST/FeatureFixOff/';
 TextureCoords1Path = [result_path 'TextureCoords1/'];
 TextureCoords2Path = [result_path 'TextureCoords2/'];
 
 %% load taxa codes
-taxa_file = [data_path 'teeth_taxa_table.mat'];
+taxa_file = [data_path 'clement_taxa_table.mat'];
 taxa_code = load(taxa_file);
 taxa_code = taxa_code.taxa_code;
 GroupSize = length(taxa_code);
-ChunkSize = 55;
+ChunkSize = 20; % Clement Data Set
 
 %% options that control the diffusion eigenvector visualization
 options.sample_path = sample_path;
-options.DisplayLayout = [4,6];
-options.DisplayOrient = 'Vertical';
+options.DisplayLayout = [5,8];
+options.DisplayOrient = 'Horizontal';
 options.boundary = 'on';
 options.names = 'off';
 
@@ -39,14 +34,7 @@ options.names = 'off';
 ChunkIdx = @(TAXAind1,TAXAind2) ceil(((TAXAind1-1)*GroupSize+TAXAind2)/ChunkSize);
 
 %% parse GroupNames
-[~,ClTable,~] = xlsread(spreadsheet_path);
-Names = {};
-NamesByGroup = cell(1,length(GroupNames));
-for j=1:length(GroupNames)
-    NamesJ = ClTable(strcmpi(ClTable(1:end,strcmpi(ClTable(1,:),GroupLevel)),GroupNames{j}),1);
-    Names = [Names,NamesJ{:}];
-    NamesByGroup{j} = NamesJ;
-end
+Names = getFileNames(sample_path);
 
 GroupSize = length(Names);
 DiffMatrixSizeList = zeros(GroupSize,1);
@@ -63,15 +51,6 @@ Names = taxa_code(TAXAinds); % match upper/lower cases
 NamesDelimit(1,:) = [];
 nVList = DiffMatrixSizeList;
 nVListCumsum = cumsum(nVList);
-
-PerGroupSize = zeros(1,length(GroupNames));
-for j=1:length(NamesByGroup)
-    for k=1:length(NamesByGroup{j})
-        NamesByGroup{j}{k} = taxa_code{strcmpi(taxa_code,NamesByGroup{j}{k})};
-    end
-    PerGroupSize(j) = length(NamesByGroup{j});
-end
-CumsumPerGroupSize = cumsum(PerGroupSize);
 
 %% collection rigid motions
 rigid_motions = load([data_path 'cPMSTinitRms.mat']);
@@ -93,12 +72,6 @@ BaseWeights = BaseWeights - diag(diag(BaseWeights));
 DiffMatrixSize = sum(DiffMatrixSizeList);
 DiffMatrixSizeList = cumsum(DiffMatrixSizeList);
 DiffMatrixSizeList = [0; DiffMatrixSizeList];
-GroupDelimit = zeros(length(GroupNames)+1,2);
-for j=2:(length(GroupNames)+1)
-    GroupDelimit(j,1) = GroupDelimit(j-1,2)+1;
-    GroupDelimit(j,2) = DiffMatrixSizeList(CumsumPerGroupSize(j-1)+1);
-end
-GroupDelimit(1,:) = [];
 DiffMatrixSizeList(end) = []; % treated as block shifts
 DiffMatrixRowIdx = [];
 DiffMatrixColIdx = [];
@@ -153,35 +126,10 @@ eigopt.issym = 1;
 eigopt.maxit = 5000;
 eigopt.disp = 0;
 tic;
-[U, lambda] = eigs(H, 101, 'LM', eigopt);
+[U, lambda] = eigs(H, 100, 'LM', eigopt);
 lambda = diag(lambda);
 disp(['Eigs completed in ' num2str(toc) ' seconds']);
 % clear H
-
-%==========================================================================
-%%% HDBM (Hypoelliptic Diffusion Base Maps)
-%==========================================================================
-sqrtInvD(isinf(sqrtInvD)) = 0;
-BundleHDM = sqrtInvD*U(:,2:end);
-HDBM = zeros(GroupSize, nchoosek(size(BundleHDM,2),2));
-for j=1:GroupSize
-    HDBM(j,:) = pdist(BundleHDM(NamesDelimit(j,1):NamesDelimit(j,2),:)',@(x,y) y*x');
-end
-%[U,S,~] = svd(HDBM);
-HDBM_dist = pdist(HDBM);
-[Y,stress] = mdscale(HDBM_dist,2,'criterion','metricstress');
-% [Y,stress] = mdscale(exp(-ImprDistMatrix.^2/FibrEps),2,'criterion','metricstress');
-PerGroupDelimit = [[1,CumsumPerGroupSize(1:end-1)+1]', CumsumPerGroupSize'];
-colorsList = ['r', 'g', 'b', 'k', 'm', 'c'];
-figure;
-for j=1:length(GroupNames)
-    scatter(Y(PerGroupDelimit(j,1):PerGroupDelimit(j,2),1),...
-            Y(PerGroupDelimit(j,1):PerGroupDelimit(j,2),2), 20, colorsList(j), 'filled');
-    if (j == 1)
-        axis equal
-        hold on;
-    end
-end
 
 %==========================================================================
 %%% convergence (to statoinary distribution) rate won't work
@@ -271,13 +219,13 @@ pause();
 %==========================================================================
 %%% view eigenvectors
 %==========================================================================
-% eigen_ind = 0;
-% while (1)
-%     eigen_ind = eigen_ind+1;
-%     tic;
-%     ViewBundleFunc(Names,sqrtInvD*U(:,eigen_ind),options);
-%     toc;
-%     pause;
-% end
+eigen_ind = 0;
+while (1)
+    eigen_ind = eigen_ind+1;
+    tic;
+    ViewBundleFunc(Names,sqrtInvD*U(:,eigen_ind),options);
+    toc;
+    pause;
+end
 
 

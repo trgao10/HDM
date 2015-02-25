@@ -10,6 +10,7 @@ function [rslt] = HypoellipticDiffusionMap(hdm)
 %   hdm.FNN         : number of nearest neighbors on each fibre
 %   hdm.T	        : diffusion time
 %   hdm.delta	    : parameter for truncation
+%   hdm.symmetrize  : symmetrize the graph
 %
 % (OPTION)
 %   hdm.debug       : debug mode
@@ -44,6 +45,7 @@ hdm.alpha         = getoptions(hdm, 'alpha', 1);
 hdm.delta         = getoptions(hdm, 'delta', 0.9);
 hdm.T             = getoptions(hdm, 'T', 2);
 hdm.FSampleType   = getoptions(hdm, 'FSampleType', 'uniform');
+hdm.symmetrize    = getoptions(hdm, 'symmetrize', 1);
 hdm.debug         = getoptions(hdm, 'debug', 0);
 hdm.embedmaxdim   = getoptions(hdm, 'embedmaxdim', 100);
 
@@ -216,20 +218,24 @@ if hdm.debug==1
 end
 %+++++++++++++++++++++++++++++++++++++++++++++++++++++++
 %%% symmetrize the graph
-if hdm.debug==1
-    fprintf('(DEBUG:HDM) Step 3'': symmetrize the base heat kernel\t\t');
+if hdm.symmetrize==1
+    if hdm.debug==1
+        fprintf('(DEBUG:HDM) Step 3'': symmetrize the base heat kernel\t\t');
+    end
+    
+    IdxI = repmat((1:NB)',BNN,1);
+    IdxJ = BaseIndex(:);
+    tmp = sparse(IdxI,IdxJ,exp(-BaseWeight(:).^2/hdm.BEpsilon));
+    tmp = min(tmp,tmp');
+    
+    for ii=1:NB
+        BaseWeight(ii,:) = tmp(ii,BaseIndex(ii,:));
+    end
+    
+    clear IdxI IdxJ tmp
+else
+    BaseWeight = exp(-BaseWeight.^2/hdm.BEpsilon);
 end
-
-IdxI = repmat((1:NB)',BNN,1);
-IdxJ = BaseIndex(:);
-tmp = sparse(IdxI,IdxJ,exp(-BaseWeight(:).^2/hdm.BEpsilon));
-tmp = min(tmp,tmp');
-
-for ii=1:NB
-    BaseWeight(ii,:) = tmp(ii,BaseIndex(ii,:));
-end
-
-clear IdxI IdxJ tmp
 
 if hdm.debug==1
     fprintf('\n');
@@ -251,9 +257,9 @@ end
 %%%    the meanwhile update two segments in D (one for row ii, the other
 %%%    for row jj);
 %%% 4. It is then possible to alpha-normalize Vals in place, like before;
-%%% 5. Replace D with the row sum of alpna-normalized Vals (slow but in
+%%% 5. Rewrite D with the row sum of alpna-normalized Vals (slow but in
 %%%    place), keep track of two segments at a time. No need to divide H by
-%%%    D after this step -- we'll solve a generalized eigenvalue problem so
+%%%    D afte rthis step -- we'll solve a generalized eigenvalue problem so
 %%%    as to avoid numerical issues (H*V=sparse(1:NB*NF,1:NB*NF,D)*V*La);
 %%% 6. H = sparse(IdxI, IdxJ, Vals, NB*NF, NB*NF, NB*NF*BNN*FNN);
 %%%    clear IdxI IdxJ Vals
@@ -281,17 +287,13 @@ if strcmpi(hdm.FSampleType,'uniform')
     unit_sphere_kdtree = kdtree_build(unit_sphere');
 end
 
-%%% find number of non-zero elements in BaseWeight
-nnzBlocks = sum(BaseWeight(:)>0)/2;
+%%% Hc is like H but compressed
+Hc = zeros(NB*NF,BNN*FNN);
+%%% IdxJc is like IdxJ but compressed
+IdxJc = zeros(NB*NF,BNN*FNN);
+%%% IdxIc = repmat((1:(NB*NF))',1,BNN*FNN);
 
-%%% pre-allocate space
-Vals = zeros(NF*FNN*nnzBlocks,1);
-IdxI = zeros(NF*FNN*nnzBlocks,1);
-IdxJ = zeros(NF*FNN*nnzBlocks,1);
-Da = zeros(NB*NF,1);
-
-count = 0;
-cback = 0;
+cback=0;
 for ii=1:NB
     for cc=1:cback
         fprintf('\b');
@@ -301,17 +303,12 @@ for ii=1:NB
     Aii = pcaBASIS(:,1:D,ii);
     
     for kk=1:BNN
-        jj = BaseIndex(ii,kk);
-        if ((jj > ii) && (BaseWeight(ii,kk)>0))
+        if BaseWeight(ii,kk)>0
             %%% if BaseWeight(ii,kk)==0, we know that ii is not within the
             %%% BNN-nearest-neighborhood of jj
-            count = count + 1;
-            ss = find(BaseIndex(jj,:) == ii);
-            
-            blockIdxI = repmat((1:NF)',FNN,1);
+            jj = BaseIndex(ii,kk);
             Ajj = pcaBASIS(:,1:D,jj);
             
-            %%% extract block (ii,jj)
             H = Ajj'*Aii;
             [U,~,V] = svd(H);
             Pji = V*U'; %%% approximates parallel transport from j to i
@@ -319,11 +316,35 @@ for ii=1:NB
             %%% but here we really want Pji since we set the unit sphere
             %%% at sample i fixed
             
-            %%% fix the unit sphere at sample i and compute how its points
-            %%% spread to the unit sphere at sample j
-%             [iikkIdxJ, Dist] = kdtree_k_nearest_neighbors_tg(unit_sphere_kdtree, unit_sphere', FNN); %%% for debugging
-            [iikkIdxJ, Dist] = kdtree_k_nearest_neighbors_tg(unit_sphere_kdtree, (Pji*unit_sphere)', FNN);
-            iikkBlockExpand = sparse(flat(blockIdxI), flat(iikkIdxJ), flat(BaseWeight(ii,kk)*exp(-Dist.^2/hdm.FEpsilon)), NF, NF, NF*FNN);
+%             %%% view unit spheres at Aii and Ajj
+%             figure;
+%             scatter3(hdm.data(1,:),hdm.data(2,:),hdm.data(3,:),1,'b','filled');
+%             axis equal;
+%             hold on
+%             
+%             scatter3(hdm.data(1,ii),hdm.data(2,ii),hdm.data(3,ii),10,'r','filled');
+%             basis = pcaBASIS(:,:,ii)+repmat(hdm.data(:,ii),1,D);
+%             scatter3(basis(1,:),basis(2,:),basis(3,:),10,'g','filled');
+%             line([hdm.data(1,ii),basis(1,1)],[hdm.data(2,ii),basis(2,1)],[hdm.data(3,ii),basis(3,1)],'color','g');
+%             line([hdm.data(1,ii),basis(1,2)],[hdm.data(2,ii),basis(2,2)],[hdm.data(3,ii),basis(3,2)],'color','g');
+%             usphere = (basis-repmat(hdm.data(:,ii),1,D))*unit_sphere+repmat(hdm.data(:,ii),1,NF);
+%             scatter3(usphere(1,:),usphere(2,:),usphere(3,:),10,'r','filled');
+%             
+%             scatter3(hdm.data(1,jj),hdm.data(2,jj),hdm.data(3,jj),10,'k','filled');
+%             basis = pcaBASIS(:,:,jj)+repmat(hdm.data(:,jj),1,D);
+%             scatter3(basis(1,:),basis(2,:),basis(3,:),10,'m','filled');
+%             line([hdm.data(1,jj),basis(1,1)],[hdm.data(2,jj),basis(2,1)],[hdm.data(3,jj),basis(3,1)],'color','m');
+%             line([hdm.data(1,jj),basis(1,2)],[hdm.data(2,jj),basis(2,2)],[hdm.data(3,jj),basis(3,2)],'color','m');
+%             usphere = (basis-repmat(hdm.data(:,jj),1,D))*unit_sphere+repmat(hdm.data(:,jj),1,NF);
+%             scatter3(usphere(1,:),usphere(2,:),usphere(3,:),10,'k','filled');
+%             
+%             Pji_usphere = pcaBASIS(:,:,ii)*Pji*unit_sphere+repmat(hdm.data(:,ii),1,NF);
+%             scatter3(Pji_usphere(1,:),Pji_usphere(2,:),Pji_usphere(3,:),10,'b','filled');
+%             for rst=1:NF
+%                 line([usphere(1,rst),Pji_usphere(1,rst)],[usphere(2,rst),Pji_usphere(2,rst)],[usphere(3,rst),Pji_usphere(3,rst)],'color','b');
+%             end
+% 
+%             keyboard
             
 %             %%% testing kdtree_k_nearest_neighbors_tg
 %             idx = zeros(NF, hdm.FNN);
@@ -332,46 +353,67 @@ for ii=1:NB
 %                 [idx(th,:), dist(th,:)] = kdtree_k_nearest_neighbors(unit_sphere_kdtree, (Pji*unit_sphere(:,th))', hdm.FNN);
 %             end
             
-%             %%% plot check nearest neighbors
-%             clf; axis equal; hold on
-%             scatter(unit_sphere(1,:),unit_sphere(2,:),10,'r','filled');
-%             scatter(Pji(1,:)*unit_sphere,Pji(2,:)*unit_sphere,10,'k','filled');
-%             rng('shuffle');
-%             fixIdx = randi(NF);
-%             for fii=1:FNN
-%                 line([unit_sphere(1,fixIdx),Pji(1,:)*unit_sphere(:,iikkIdxJ(fixIdx,fii))],[unit_sphere(2,fixIdx),Pji(2,:)*unit_sphere(:,iikkIdxJ(fixIdx,fii))],'color','b');
-%             end
-            
-            %%% extract block (jj,ii)
-%             [jjssIdxJ, Dist] = kdtree_k_nearest_neighbors_tg(unit_sphere_kdtree, unit_sphere', FNN);
-            [jjssIdxJ, Dist] = kdtree_k_nearest_neighbors_tg(unit_sphere_kdtree, (Pji'*unit_sphere)', FNN);
-            jjssBlockExpand = sparse(flat(blockIdxI), flat(jjssIdxJ), flat(BaseWeight(ii,kk)*exp(-Dist.^2/hdm.FEpsilon)), NF, NF, NF*FNN);
-            
-            %%% symmetrize iikkBlockExpand and jjssBlockExpand
-            tmp = min(iikkBlockExpand, jjssBlockExpand');
-            tmp = tmp.^2; %%% What is the effect of this?
-            tmpc = zeros(NF,FNN);
-            for rr = 1:NF
-                tmpc(rr,:) = tmp(rr,iikkIdxJ(rr,:));
-            end
-            
-            %%% only store block (ii,jj) into IdxI, IdxJ, Vals
-            blockRange = ((count-1)*NF*FNN+1):count*NF*FNN;
-%             IdxI(blockRange) = repmat((1:NF)+(ii-1)*NF, FNN, 1);
-            IdxJ(blockRange) = flat((jj-1)*NF+iikkIdxJ);
-            Vals(blockRange) = flat(tmpc);
-            
-            %%% update segments ii and jj of Da
-            Da(((ii-1)*NF+1):ii*NF) = Da(((ii-1)*NF+1):ii*NF) + sum(tmp,2);
-            Da(((jj-1)*NF+1):jj*NF) = Da(((jj-1)*NF+1):jj*NF) + sum(tmp)';
-            
-            clear blockIdxI iikkIdxJ jjssIdxJ iikkBlockExpand jjssBlockExpand tmp tmpc blockRange
+            %%% fix the unit sphere at sample i and compute how its points
+            %%% spread to the unit sphere at sample j
+%             [Idx, Dist] = kdtree_k_nearest_neighbors_tg(unit_sphere_kdtree, unit_sphere', FNN); %%% for debugging
+            [Idx, Dist] = kdtree_k_nearest_neighbors_tg(unit_sphere_kdtree, (Pji*unit_sphere)', FNN);
+            HcBlockRowRange = ((ii-1)*NF+1):(ii*NF);
+            HcBlockColRange = ((kk-1)*FNN+1):(kk*FNN);
+            Hc(HcBlockRowRange,HcBlockColRange) = BaseWeight(ii,kk)*exp(-Dist.^2/hdm.FEpsilon);
+            IdxJc(HcBlockRowRange,HcBlockColRange) = (jj-1)*NF+Idx;
         end
     end
 end
-
 if hdm.debug==1
     fprintf('\n');
+end
+
+%++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+%%% symmetrize Hc in place: check this part again and again!
+if hdm.symmetrize==1
+    if hdm.debug==1
+        fprintf('(DEBUG:HDM) Step 4'': symmetrize the heat kernel (in place but slow)\t\t');
+    end
+    
+    cback=0;
+    for ii=1:NB
+        for cc=1:cback
+            fprintf('\b');
+        end
+        cback = fprintf('%4d',ii);
+        
+        for kk=1:BNN
+            jj = BaseIndex(ii,kk);
+            if ((jj > ii) && (BaseWeight(ii,kk)>0))
+                ss = find(BaseIndex(jj,:) == ii);
+                %%% ss is the column index in the jj-th row of BaseWeight that
+                %%% contains index ii
+                iikkBlockRowRange = ((ii-1)*NF+1):(ii*NF);
+                iikkBlockColRange = ((kk-1)*FNN+1):(kk*FNN);
+                jjssBlockRowRange = ((jj-1)*NF+1):(jj*NF);
+                jjssBlockColRange = ((ss-1)*FNN+1):(ss*FNN);
+                
+                IdxI = repmat((1:NF)',hdm.FNN,1);
+                iikkIdxJ = IdxJc(iikkBlockRowRange,iikkBlockColRange)-(jj-1)*NF;
+                iikkBlockExpand = sparse(flat(IdxI), flat(iikkIdxJ), flat(Hc(iikkBlockRowRange,iikkBlockColRange)), NF, NF, NF*FNN);
+                
+                jjssIdxJ = IdxJc(jjssBlockRowRange,jjssBlockColRange)-(ii-1)*NF;
+                jjssBlockExpand = sparse(flat(IdxI), flat(jjssIdxJ), flat(Hc(jjssBlockRowRange,jjssBlockColRange)), NF, NF, NF*FNN);
+                
+                tmp = min(iikkBlockExpand, jjssBlockExpand');
+                tmp = tmp.^2;
+                for rr = 1:NF
+                    Hc(iikkBlockRowRange(rr),iikkBlockColRange) = tmp(rr,iikkIdxJ(rr,:));
+                    Hc(jjssBlockRowRange(rr),jjssBlockColRange) = tmp(jjssIdxJ(rr,:),rr);
+                end
+                clear IdxI iikkIdxJ jjssIdxJ iikkBlockExpand jjssBlockExpand tmp
+            end
+        end
+    end
+    
+    if hdm.debug==1
+        fprintf('\n');
+    end
 end
 
 clear pcaBASIS BaseWeight BaseIndex
@@ -382,32 +424,47 @@ if (hdm.alpha > 0)
         fprintf('(DEBUG:HDM) Step 4'''': Alpha-Normalizing the Heat Kernel (in place but slow)\t\t');
     end
 
-    Da = 1./Da.^hdm.alpha;
+    Dc = 1./sum(Hc,2).^hdm.alpha;
     
     %%% alpha-normalize Hc: slow but in place
-    Vals = Da(IdxI).*Vals.*Da(IdxJ);
-%     for ii=1:NB*NF
-%         validIdx = find(IdxJc(ii,:)>0);
-%         Hc(ii,validIdx) = (Dc(ii)*Hc(ii,validIdx)).*Dc(IdxJc(ii,validIdx))';
-%     end
+    for ii=1:NB*NF
+        validIdx = find(IdxJc(ii,:)>0);
+        Hc(ii,validIdx) = (Dc(ii)*Hc(ii,validIdx)).*Dc(IdxJc(ii,validIdx))';
+    end
     
     if hdm.debug==1
         fprintf('\n');
     end
 end
-clear Dc
 %+++++++++++++++++++++++++++++++++++++++++++++++++++++++
 %%% construct full-sized Hc and normalization
 % sqrtDc = sparse(1:NB*NF, 1:NB*NF, sqrt(1./sum(Hc,2)));
-H = sparse(IdxI,IdxJ,Vals,NB*NF, NB*NF, NB*NF*BNN*FNN);
-clear IdxI IdxJ Vals Da
-H = (H+H')/2;
+Dc = sparse(1:NB*NF, 1:NB*NF, sum(Hc,2));
+Hc = Hc(:);
+IdxJc = IdxJc(:);
+IdxIc = repmat((1:(NB*NF))',BNN*FNN,1);
 
-Da = sum(H);
-denom_sqrt_D = sparse(1:NB*NF, 1:NB*NF, 1./sqrt(Da));
-clear Da;
-H = denom_sqrt_D*H*denom_sqrt_D;
-H = (H+H')/2;
+delIdx = find(IdxJc == 0);
+IdxJc(delIdx) = [];
+Hc(delIdx) = [];
+IdxIc(delIdx) = [];
+
+Hc = sparse(IdxIc, IdxJc, Hc, NB*NF, NB*NF, NB*NF*BNN*FNN);
+clear IdxIc IdxJc
+
+% if hdm.alpha>0
+%     p = sum(Hc);
+%     p = p.^hdm.alpha;
+%     
+%     denom_p = sparse(1:NB*NF, 1:NB*NF, 1./p);
+%     clear p;
+%     Hc = denom_p*Hc*denom_p;
+%     
+%     clear denom_p;
+% end
+
+% sqrtDc = sparse(1:NB*NF, 1:NB*NF, sqrt(1./sum(Hc,2)));
+% Hc = sqrtDc*Hc*sqrtDc;
 
 %%% symmetrize Hc
 %%% not quite necessary due to the constructoin, but helps with numerics
@@ -421,8 +478,8 @@ if hdm.debug==1
 end
 
 %%% heavy-lifting eigen-decomposition of the heat kernel
-% [~,lambda] = eigs(H, sparse(1:NB*NF,1:NB*NF,Da), hdm.embedmaxdim, 'lm', eigopt);
-[~,lambda] = eigs(H, hdm.embedmaxdim, 'lm', eigopt);
+[~,lambda] = eigs(Hc, Dc, hdm.embedmaxdim, 'lm', eigopt);
+% [~,lambda]	   = eigs(Hc, hdm.embedmaxdim, 'lm', eigopt);
 
 % lambdaS		       = diag(lambdaS);
 % [lambdaS, sortidx] = sort(lambdaS, 'descend');
