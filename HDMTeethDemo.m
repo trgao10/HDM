@@ -9,15 +9,15 @@ FibrEps = 1e-3;
 MapType = 'cPMST';
 GroupLevel = 'Genus';
 % GroupNames = {'Purgatorius'};
-GroupNames = {'Purgatorius','Pronothodectes'};
-% GroupNames = {'Purgatorius','Tupaia','Pronothodectes','Varecia'};
+% GroupNames = {'Purgatorius','Pronothodectes'};
+GroupNames = {'Purgatorius','Tupaia','Pronothodectes','Varecia','Microcebus','Lemur'};
 
 %% setup paths
 base_path = [pwd '/'];
 data_path = '../DATA/PNAS/';
 spreadsheet_path = [data_path 'ClassificationTable.xlsx'];
 sample_path = '../cPdist/samples/Teeth/';
-result_path = '/media/trgao10/Work/MATLAB/ArchivedResults/Teeth/cPMST/FeatureFixOff/';
+result_path = '/media/trgao10/Work/MATLAB/ArchivedResults/Teeth/cPMST/FeatureFixOn/';
 TextureCoords1Path = [result_path 'TextureCoords1/'];
 TextureCoords2Path = [result_path 'TextureCoords2/'];
 
@@ -30,8 +30,8 @@ ChunkSize = 55;
 
 %% options that control the diffusion eigenvector visualization
 options.sample_path = sample_path;
-options.DisplayLayout = [2,4];
-options.DisplayOrient = 'Horizontal';
+options.DisplayLayout = [4,6];
+options.DisplayOrient = 'Vertical';
 options.boundary = 'on';
 options.names = 'off';
 
@@ -153,10 +153,35 @@ eigopt.issym = 1;
 eigopt.maxit = 5000;
 eigopt.disp = 0;
 tic;
-[U, lambda] = eigs(H, 100, 'LM', eigopt);
+[U, lambda] = eigs(H, 101, 'LM', eigopt);
 lambda = diag(lambda);
 disp(['Eigs completed in ' num2str(toc) ' seconds']);
 % clear H
+
+%==========================================================================
+%%% HDBM (Hypoelliptic Diffusion Base Maps)
+%==========================================================================
+sqrtInvD(isinf(sqrtInvD)) = 0;
+BundleHDM = sqrtInvD*U(:,2:end);
+HDBM = zeros(GroupSize, nchoosek(size(BundleHDM,2),2));
+for j=1:GroupSize
+    HDBM(j,:) = pdist(BundleHDM(NamesDelimit(j,1):NamesDelimit(j,2),:)',@(x,y) y*x');
+end
+%[U,S,~] = svd(HDBM);
+HDBM_dist = pdist(HDBM);
+[Y,stress] = mdscale(HDBM_dist,2,'criterion','metricstress');
+% [Y,stress] = mdscale(exp(-ImprDistMatrix.^2/FibrEps),2,'criterion','metricstress');
+PerGroupDelimit = [[1,CumsumPerGroupSize(1:end-1)+1]', CumsumPerGroupSize'];
+colorsList = ['r', 'g', 'b', 'k', 'm', 'c'];
+figure;
+for j=1:length(GroupNames)
+    scatter(Y(PerGroupDelimit(j,1):PerGroupDelimit(j,2),1),...
+            Y(PerGroupDelimit(j,1):PerGroupDelimit(j,2),2), 20, colorsList(j), 'filled');
+    if (j == 1)
+        axis equal
+        hold on;
+    end
+end
 
 %==========================================================================
 %%% convergence (to statoinary distribution) rate won't work
@@ -246,13 +271,13 @@ pause();
 %==========================================================================
 %%% view eigenvectors
 %==========================================================================
-eigen_ind = 0;
-while (1)
-    eigen_ind = eigen_ind+1;
-    tic;
-    ViewBundleFunc(Names,sqrtInvD*U(:,eigen_ind),options);
-    toc;
-    pause;
-end
+% eigen_ind = 0;
+% while (1)
+%     eigen_ind = eigen_ind+1;
+%     tic;
+%     ViewBundleFunc(Names,sqrtInvD*U(:,eigen_ind),options);
+%     toc;
+%     pause;
+% end
 
 
