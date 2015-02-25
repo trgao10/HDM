@@ -12,7 +12,7 @@ MapType = 'cPMST';
 base_path = [pwd '/'];
 data_path = '../DATA/Clement/';
 sample_path = '../cPdist/samples/Clement/';
-result_path = '/media/trgao10/Work/MATLAB/ArchivedResults/Clement/cPMST/FeatureFixOff/';
+result_path = '/media/trgao10/Work/MATLAB/ArchivedResults/Clement/Clement/cPMST/FeatureFixOff/';
 TextureCoords1Path = [result_path 'TextureCoords1/'];
 TextureCoords2Path = [result_path 'TextureCoords2/'];
 
@@ -21,7 +21,7 @@ taxa_file = [data_path 'clement_taxa_table.mat'];
 taxa_code = load(taxa_file);
 taxa_code = taxa_code.taxa_code;
 GroupSize = length(taxa_code);
-ChunkSize = 55;
+ChunkSize = 20; % Clement Data Set
 
 %% options that control the diffusion eigenvector visualization
 options.sample_path = sample_path;
@@ -34,14 +34,7 @@ options.names = 'off';
 ChunkIdx = @(TAXAind1,TAXAind2) ceil(((TAXAind1-1)*GroupSize+TAXAind2)/ChunkSize);
 
 %% parse GroupNames
-[~,ClTable,~] = xlsread(spreadsheet_path);
-Names = {};
-NamesByGroup = cell(1,length(GroupNames));
-for j=1:length(GroupNames)
-    NamesJ = ClTable(strcmpi(ClTable(1:end,strcmpi(ClTable(1,:),GroupLevel)),GroupNames{j}),1);
-    Names = [Names,NamesJ{:}];
-    NamesByGroup{j} = NamesJ;
-end
+Names = getFileNames(sample_path);
 
 GroupSize = length(Names);
 DiffMatrixSizeList = zeros(GroupSize,1);
@@ -58,15 +51,6 @@ Names = taxa_code(TAXAinds); % match upper/lower cases
 NamesDelimit(1,:) = [];
 nVList = DiffMatrixSizeList;
 nVListCumsum = cumsum(nVList);
-
-PerGroupSize = zeros(1,length(GroupNames));
-for j=1:length(NamesByGroup)
-    for k=1:length(NamesByGroup{j})
-        NamesByGroup{j}{k} = taxa_code{strcmpi(taxa_code,NamesByGroup{j}{k})};
-    end
-    PerGroupSize(j) = length(NamesByGroup{j});
-end
-CumsumPerGroupSize = cumsum(PerGroupSize);
 
 %% collection rigid motions
 rigid_motions = load([data_path 'cPMSTinitRms.mat']);
@@ -88,12 +72,6 @@ BaseWeights = BaseWeights - diag(diag(BaseWeights));
 DiffMatrixSize = sum(DiffMatrixSizeList);
 DiffMatrixSizeList = cumsum(DiffMatrixSizeList);
 DiffMatrixSizeList = [0; DiffMatrixSizeList];
-GroupDelimit = zeros(length(GroupNames)+1,2);
-for j=2:(length(GroupNames)+1)
-    GroupDelimit(j,1) = GroupDelimit(j-1,2)+1;
-    GroupDelimit(j,2) = DiffMatrixSizeList(CumsumPerGroupSize(j-1)+1);
-end
-GroupDelimit(1,:) = [];
 DiffMatrixSizeList(end) = []; % treated as block shifts
 DiffMatrixRowIdx = [];
 DiffMatrixColIdx = [];
