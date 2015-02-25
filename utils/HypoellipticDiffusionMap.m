@@ -412,6 +412,7 @@ if (hdm.alpha > 0)
         fprintf('\n');
     end
 end
+clear Dc
 %+++++++++++++++++++++++++++++++++++++++++++++++++++++++
 %%% construct full-sized Hc and normalization
 % sqrtDc = sparse(1:NB*NF, 1:NB*NF, sqrt(1./sum(Hc,2)));

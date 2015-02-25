@@ -47,11 +47,11 @@ cameratoolbar('SetCoordSys','none');
 
 %% hypoelliptic diffusion map
 hdm.data	 = x;
-hdm.NF       = 20;
+hdm.NF       = 100;
 hdm.BEpsilon = 0.2;
-hdm.FEpsilon = 0.002;
+hdm.FEpsilon = 1e-5;
 hdm.BNN	     = 100;
-hdm.FNN	     = 20;
+hdm.FNN	     = 100;
 hdm.T	     = 1;
 hdm.delta	 = 0.9;
 hdm.embedmaxdim = 100;
