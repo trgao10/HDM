@@ -52,6 +52,7 @@ hdm.BEpsilon = 0.2;
 hdm.FEpsilon = 0.02;
 hdm.BNN	     = 100;
 hdm.FNN	     = 10;
+
 hdm.T	     = 1;
 hdm.delta	 = 0.9;
 hdm.embedmaxdim = 100;

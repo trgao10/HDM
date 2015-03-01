@@ -14,8 +14,6 @@ data_path = '../DATA/Clement/';
 sample_path = '../cPdist/samples/Clement/';
 result_path = '/media/trgao10/Work/MATLAB/ArchivedResults/Clement/cPMST/FeatureFixOff/';
 soften_path = '/media/trgao10/Work/MATLAB/ArchivedResults/Clement/soften_cPMST_FeatureFixOff/';
-% TextureCoords1Path = [result_path 'TextureCoords1/'];
-% TextureCoords2Path = [result_path 'TextureCoords2/'];
 
 %% load taxa codes
 taxa_file = [data_path 'clement_taxa_table.mat'];
