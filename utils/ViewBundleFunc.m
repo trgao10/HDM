@@ -28,7 +28,7 @@ for i=1:GroupSize
     end
 end
 
-if (~isempty(findobj('Type','figure')))
+if (~isempty(findobj('Tag','BundleFunc')))
     camUpVector = get(gca, 'CameraUpVector');
     camPosition = get(gca, 'CameraPosition');
     camTarget = get(gca, 'CameraTarget');
@@ -71,6 +71,7 @@ if (exist('camUpVector', 'var'))
     set(gca, 'CameraPosition', camPosition);
     set(gca, 'CameraTarget', camTarget);
     set(gca, 'CameraViewAngle', camViewAngle);
+    set(gcf, 'Tag', 'BundleFunc');
 end
 
 end

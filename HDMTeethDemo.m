@@ -5,21 +5,26 @@ addpath(path,genpath([pwd '/utils/']));
 
 %% setup parameter
 BaseEps = 0.03;
+BNN = 5;
 FibrEps = 1e-3;
 MapType = 'cPMST';
-GroupLevel = 'Genus';
+FeatureFix = 'Off';
+GroupLevel = 'Order';
+GroupNames = {'Euprimates','Primates','Dermoptera','Scandentia','Incertae sedis'};
 % GroupNames = {'Purgatorius'};
-% GroupNames = {'Purgatorius','Pronothodectes'};
-GroupNames = {'Purgatorius','Tupaia','Pronothodectes','Varecia','Microcebus','Lemur'};
+% GroupNames = {'Purgatorius','Pronothodectes','Tupaia','Lemur','Microcebus','Cantius'};
+% GroupNames = {'Tupaia','Galago'};
+% GroupNames = {'Purgatorius','Tupaia','Pronothodectes','Varecia','Microcebus','Lemur'};
 
 %% setup paths
 base_path = [pwd '/'];
 data_path = '../DATA/PNAS/';
 spreadsheet_path = [data_path 'ClassificationTable.xlsx'];
 sample_path = '../cPdist/samples/Teeth/';
-result_path = '/media/trgao10/Work/MATLAB/ArchivedResults/Teeth/cPMST/FeatureFixOn/';
-TextureCoords1Path = [result_path 'TextureCoords1/'];
-TextureCoords2Path = [result_path 'TextureCoords2/'];
+result_path = ['/media/trgao10/Work/MATLAB/ArchivedResults/Teeth/' MapType '/' 'FeatureFix' FeatureFix '/'];
+soften_path = [result_path 'soften/'];
+% TextureCoords1Path = [result_path 'TextureCoords1/'];
+% TextureCoords2Path = [result_path 'TextureCoords2/'];
 
 %% load taxa codes
 taxa_file = [data_path 'teeth_taxa_table.mat'];
@@ -30,8 +35,8 @@ ChunkSize = 55;
 
 %% options that control the diffusion eigenvector visualization
 options.sample_path = sample_path;
-options.DisplayLayout = [4,6];
-options.DisplayOrient = 'Vertical';
+options.DisplayLayout = [5,6];
+options.DisplayOrient = 'Horizontal';
 options.boundary = 'on';
 options.names = 'off';
 
@@ -84,10 +89,21 @@ if strcmpi(MapType,'cP')
 else
     eval(['BaseDistMatrix = ImprDistMatrix(TAXAinds,TAXAinds);']);
 end
-BaseWeights = exp(-BaseDistMatrix.^2/BaseEps);
-BaseWeights = BaseWeights - diag(diag(BaseWeights));
-% BaseWeights = diag(1./sum(BaseWeights,2))*BaseWeights;
-% keyboard
+
+%%% only connect BNN-nearest-neighbors
+[sDists,rowNNs] = sort(BaseDistMatrix,2);
+sDists = sDists(:,2:(1+BNN));
+rowNNs = rowNNs(:,2:(1+BNN));
+BaseWeights = sparse(repmat((1:GroupSize)',1,BNN),rowNNs,sDists);
+BaseWeights = min(BaseWeights, BaseWeights');
+for j=1:GroupSize
+    sDists(j,:) = BaseWeights(j,rowNNs(j,:));
+end
+sDists = exp(-sDists.^2/BaseEps);
+% BaseWeights = exp(-BaseWeights.^2/BaseEps);
+% BaseWeights = BaseWeights - diag(diag(BaseWeights));
+% % BaseWeights = diag(1./sum(BaseWeights,2))*BaseWeights;
+% % keyboard
 
 %% build diffusion kernel matrix
 DiffMatrixSize = sum(DiffMatrixSizeList);
@@ -103,32 +119,46 @@ DiffMatrixSizeList(end) = []; % treated as block shifts
 DiffMatrixRowIdx = [];
 DiffMatrixColIdx = [];
 DiffMatrixVal = [];
+
+cback = 0;
 for j=1:GroupSize
     G1 = load([sample_path taxa_code{strcmpi(taxa_code,Names{j})} '.mat']); G1 = G1.G;
-    for k=(j+1):GroupSize
+    for nns = 1:BNN
+        if (sDists(j,nns) == 0)
+            continue;
+        end
+        k = rowNNs(j,nns);
+%     for k=(j+1):GroupSize
         G2 = load([sample_path taxa_code{strcmpi(taxa_code,Names{k})} '.mat']); G2 = G2.G;
         
         %%% load texture coordinates
         TAXAind1 = TAXAinds(j);
         TAXAind2 = TAXAinds(k);
-        load([TextureCoords1Path 'TextureCoords1_mat_' num2str(ChunkIdx(TAXAind1,TAXAind2)) '.mat']);
-        load([TextureCoords2Path 'TextureCoords2_mat_' num2str(ChunkIdx(TAXAind1,TAXAind2)) '.mat']);
-        TextureCoords1 = TextureCoords1Matrix{TAXAind1,TAXAind2};
-        TextureCoords2 = TextureCoords2Matrix{TAXAind1,TAXAind2};
-        [~,~,AugKernel12,~] = MapSoftenKernel(TextureCoords1,TextureCoords2,G2.F,G1.V,G2.V,FibrEps);
-        [~,~,AugKernel21,~] = MapSoftenKernel(TextureCoords2,TextureCoords1,G1.F,G2.V,G1.V,FibrEps);
-        AugKernel12 = max(AugKernel12,AugKernel21');
+        load([soften_path 'soften_mat_' num2str(ChunkIdx(TAXAind1, TAXAind2)) '.mat']);
+        AugKernel12 = cPSoftMapsMatrix{TAXAind1, TAXAind2};
+%         load([TextureCoords1Path 'TextureCoords1_mat_' num2str(ChunkIdx(TAXAind1,TAXAind2)) '.mat']);
+%         load([TextureCoords2Path 'TextureCoords2_mat_' num2str(ChunkIdx(TAXAind1,TAXAind2)) '.mat']);
+%         TextureCoords1 = TextureCoords1Matrix{TAXAind1,TAXAind2};
+%         TextureCoords2 = TextureCoords2Matrix{TAXAind1,TAXAind2};
+%         [~,~,AugKernel12,~] = MapSoftenKernel(TextureCoords1,TextureCoords2,G2.F,G1.V,G2.V,FibrEps);
+%         [~,~,AugKernel21,~] = MapSoftenKernel(TextureCoords2,TextureCoords1,G1.F,G2.V,G1.V,FibrEps);
+%         AugKernel12 = max(AugKernel12,AugKernel21');
         
         [rowIdx, colIdx, val] = find(AugKernel12);
         DiffMatrixRowIdx = [DiffMatrixRowIdx; rowIdx+DiffMatrixSizeList(j)];
         DiffMatrixColIdx = [DiffMatrixColIdx; colIdx+DiffMatrixSizeList(k)];
-        DiffMatrixVal = [DiffMatrixVal; BaseWeights(j,k)*val];
+        DiffMatrixVal = [DiffMatrixVal; sDists(j,nns)*val];
+%         DiffMatrixVal = [DiffMatrixVal; BaseWeights(j,k)*val];
         [rowIdx, colIdx, val] = find(AugKernel12');
         DiffMatrixRowIdx = [DiffMatrixRowIdx; rowIdx+DiffMatrixSizeList(k)];
         DiffMatrixColIdx = [DiffMatrixColIdx; colIdx+DiffMatrixSizeList(j)];
-        DiffMatrixVal = [DiffMatrixVal; BaseWeights(k,j)*val];
+        DiffMatrixVal = [DiffMatrixVal; sDists(j,nns)*val];
+%         DiffMatrixVal = [DiffMatrixVal; BaseWeights(k,j)*val];
     end
-    disp([num2str(j) '/' num2str(GroupSize) ' done.']);
+    for cc=1:cback
+        fprintf('\b');
+    end
+    cback = fprintf(['%4d/' num2str(GroupSize) ' done.\n'],j);
 end
 
 H = sparse(DiffMatrixRowIdx,DiffMatrixColIdx,DiffMatrixVal,DiffMatrixSize,DiffMatrixSize);
@@ -139,9 +169,10 @@ clear TextureCoords1Matrix TextureCoords2Matrix
 sqrtD = sparse(1:DiffMatrixSize,1:DiffMatrixSize,sqrt(sum(H)));
 invD = sparse(1:DiffMatrixSize,1:DiffMatrixSize,1./sum(H));
 sqrtInvD = sparse(1:DiffMatrixSize,1:DiffMatrixSize,1./sqrt(sum(H)));
-K = invD*H;
+% K = invD*H;
 H = sqrtInvD*H*sqrtInvD;
 H = (H+H')/2;
+
 %%% this loop is slow but much less memory consuming
 % for k=1:size(DiffMatrix,1)
 %     DiffMatrix(k,:) = sqrtInvD(k)*DiffMatrix(k,:);
@@ -162,21 +193,25 @@ disp(['Eigs completed in ' num2str(toc) ' seconds']);
 %%% HDBM (Hypoelliptic Diffusion Base Maps)
 %==========================================================================
 sqrtInvD(isinf(sqrtInvD)) = 0;
-BundleHDM = sqrtInvD*U(:,2:end);
+% BundleHDM = sqrtInvD*U(:,2:end);
+BundleHDM = sqrtInvD*U(:,2:end)*sparse(1:(size(U,2)-1), 1:(size(U,2)-1), sqrt(lambda(2:end)));
 HDBM = zeros(GroupSize, nchoosek(size(BundleHDM,2),2));
 for j=1:GroupSize
     HDBM(j,:) = pdist(BundleHDM(NamesDelimit(j,1):NamesDelimit(j,2),:)',@(x,y) y*x');
 end
 %[U,S,~] = svd(HDBM);
 HDBM_dist = pdist(HDBM);
-[Y,stress] = mdscale(HDBM_dist,2,'criterion','metricstress');
-% [Y,stress] = mdscale(exp(-ImprDistMatrix.^2/FibrEps),2,'criterion','metricstress');
+% [Y,stress] = mdscale(HDBM_dist,2,'criterion','metricstress');
+% [~, Y] = ClassicalMDS(squareform(HDBM_dist), GroupSize);
+[Y,stress] = mdscale(HDBM_dist,3,'criterion','metricstress');
 PerGroupDelimit = [[1,CumsumPerGroupSize(1:end-1)+1]', CumsumPerGroupSize'];
 colorsList = ['r', 'g', 'b', 'k', 'm', 'c'];
 figure;
 for j=1:length(GroupNames)
-    scatter(Y(PerGroupDelimit(j,1):PerGroupDelimit(j,2),1),...
-            Y(PerGroupDelimit(j,1):PerGroupDelimit(j,2),2), 20, colorsList(j), 'filled');
+    scatter3(Y(PerGroupDelimit(j,1):PerGroupDelimit(j,2),1),...
+            Y(PerGroupDelimit(j,1):PerGroupDelimit(j,2),2),...
+            Y(PerGroupDelimit(j,1):PerGroupDelimit(j,2),3),...
+            20, colorsList(j), 'filled');
     if (j == 1)
         axis equal
         hold on;

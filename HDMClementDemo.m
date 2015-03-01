@@ -12,9 +12,10 @@ MapType = 'cPMST';
 base_path = [pwd '/'];
 data_path = '../DATA/Clement/';
 sample_path = '../cPdist/samples/Clement/';
-result_path = '/media/trgao10/Work/MATLAB/ArchivedResults/Clement/Clement/cPMST/FeatureFixOff/';
-TextureCoords1Path = [result_path 'TextureCoords1/'];
-TextureCoords2Path = [result_path 'TextureCoords2/'];
+result_path = '/media/trgao10/Work/MATLAB/ArchivedResults/Clement/cPMST/FeatureFixOff/';
+soften_path = '/media/trgao10/Work/MATLAB/ArchivedResults/Clement/soften_cPMST_FeatureFixOff/';
+% TextureCoords1Path = [result_path 'TextureCoords1/'];
+% TextureCoords2Path = [result_path 'TextureCoords2/'];
 
 %% load taxa codes
 taxa_file = [data_path 'clement_taxa_table.mat'];
@@ -84,13 +85,15 @@ for j=1:GroupSize
         %%% load texture coordinates
         TAXAind1 = TAXAinds(j);
         TAXAind2 = TAXAinds(k);
-        load([TextureCoords1Path 'TextureCoords1_mat_' num2str(ChunkIdx(TAXAind1,TAXAind2)) '.mat']);
-        load([TextureCoords2Path 'TextureCoords2_mat_' num2str(ChunkIdx(TAXAind1,TAXAind2)) '.mat']);
-        TextureCoords1 = TextureCoords1Matrix{TAXAind1,TAXAind2};
-        TextureCoords2 = TextureCoords2Matrix{TAXAind1,TAXAind2};
-        [~,~,AugKernel12,~] = MapSoftenKernel(TextureCoords1,TextureCoords2,G2.F,G1.V,G2.V,FibrEps);
-        [~,~,AugKernel21,~] = MapSoftenKernel(TextureCoords2,TextureCoords1,G1.F,G2.V,G1.V,FibrEps);
-        AugKernel12 = max(AugKernel12,AugKernel21');
+        load([soften_path 'soften_mat_' num2str(ChunkIdx(TAXAind1, TAXAind2)) '.mat']);
+        AugKernel12 = cPSoftMapsMatrix{TAXAind1, TAXAind2};
+%         load([TextureCoords1Path 'TextureCoords1_mat_' num2str(ChunkIdx(TAXAind1,TAXAind2)) '.mat']);
+%         load([TextureCoords2Path 'TextureCoords2_mat_' num2str(ChunkIdx(TAXAind1,TAXAind2)) '.mat']);
+%         TextureCoords1 = TextureCoords1Matrix{TAXAind1,TAXAind2};
+%         TextureCoords2 = TextureCoords2Matrix{TAXAind1,TAXAind2};
+%         [~,~,AugKernel12,~] = MapSoftenKernel(TextureCoords1,TextureCoords2,G2.F,G1.V,G2.V,FibrEps);
+%         [~,~,AugKernel21,~] = MapSoftenKernel(TextureCoords2,TextureCoords1,G1.F,G2.V,G1.V,FibrEps);
+%         AugKernel12 = max(AugKernel12,AugKernel21');
         
         [rowIdx, colIdx, val] = find(AugKernel12);
         DiffMatrixRowIdx = [DiffMatrixRowIdx; rowIdx+DiffMatrixSizeList(j)];
@@ -112,7 +115,7 @@ clear TextureCoords1Matrix TextureCoords2Matrix
 sqrtD = sparse(1:DiffMatrixSize,1:DiffMatrixSize,sqrt(sum(H)));
 invD = sparse(1:DiffMatrixSize,1:DiffMatrixSize,1./sum(H));
 sqrtInvD = sparse(1:DiffMatrixSize,1:DiffMatrixSize,1./sqrt(sum(H)));
-K = invD*H;
+% K = invD*H;
 H = sqrtInvD*H*sqrtInvD;
 H = (H+H')/2;
 %%% this loop is slow but much less memory consuming
