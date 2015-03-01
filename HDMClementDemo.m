@@ -12,7 +12,7 @@ MapType = 'cPMST';
 base_path = [pwd '/'];
 data_path = '../DATA/Clement/';
 sample_path = '../cPdist/samples/Clement/';
-result_path = '/media/trgao10/Work/MATLAB/ArchivedResults/Clement/Clement/cPMST/FeatureFixOff/';
+result_path = '../DATA/Clement/cPMST/FeatureFixOff/';
 TextureCoords1Path = [result_path 'TextureCoords1/'];
 TextureCoords2Path = [result_path 'TextureCoords2/'];
 

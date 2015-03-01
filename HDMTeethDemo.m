@@ -17,7 +17,7 @@ base_path = [pwd '/'];
 data_path = '../DATA/PNAS/';
 spreadsheet_path = [data_path 'ClassificationTable.xlsx'];
 sample_path = '../cPdist/samples/Teeth/';
-result_path = '/media/trgao10/Work/MATLAB/ArchivedResults/Teeth/cPMST/FeatureFixOn/';
+result_path = '/xtmp/ArchivedResults/PNAS/cPMST/FeatureFixOn/';
 TextureCoords1Path = [result_path 'TextureCoords1/'];
 TextureCoords2Path = [result_path 'TextureCoords2/'];
 
