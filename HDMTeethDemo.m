@@ -9,12 +9,14 @@ BNN = 5;
 FibrEps = 1e-3;
 MapType = 'cPMST';
 FeatureFix = 'Off';
-GroupLevel = 'Order';
-GroupNames = {'Euprimates','Primates','Dermoptera','Scandentia','Incertae sedis'};
+GroupLevel = 'Genus';
+% GroupNames = {'Euprimates','Primates','Dermoptera','Scandentia','Incertae sedis'};
 % GroupNames = {'Purgatorius'};
+% GroupNames = {'Purgatorius','Pronothodectes'};
+% GroupNames = {'Purgatorius','Pronothodectes','Tupaia','Lemur'};
 % GroupNames = {'Purgatorius','Pronothodectes','Tupaia','Lemur','Microcebus','Cantius'};
 % GroupNames = {'Tupaia','Galago'};
-% GroupNames = {'Purgatorius','Tupaia','Pronothodectes','Varecia','Microcebus','Lemur'};
+GroupNames = {'Purgatorius','Tupaia','Pronothodectes','Varecia','Microcebus','Lemur'};
 
 %% setup paths
 base_path = [pwd '/'];
@@ -35,8 +37,8 @@ ChunkSize = 55;
 
 %% options that control the diffusion eigenvector visualization
 options.sample_path = sample_path;
-options.DisplayLayout = [5,6];
-options.DisplayOrient = 'Horizontal';
+options.DisplayLayout = [4,6];
+options.DisplayOrient = 'Vertical';
 options.boundary = 'on';
 options.names = 'off';
 
@@ -194,10 +196,12 @@ disp(['Eigs completed in ' num2str(toc) ' seconds']);
 %==========================================================================
 sqrtInvD(isinf(sqrtInvD)) = 0;
 % BundleHDM = sqrtInvD*U(:,2:end);
-BundleHDM = sqrtInvD*U(:,2:end)*sparse(1:(size(U,2)-1), 1:(size(U,2)-1), sqrt(lambda(2:end)));
+BundleHDM = sqrtInvD*U(:,2:end);
 HDBM = zeros(GroupSize, nchoosek(size(BundleHDM,2),2));
 for j=1:GroupSize
-    HDBM(j,:) = pdist(BundleHDM(NamesDelimit(j,1):NamesDelimit(j,2),:)',@(x,y) y*x');
+    BundleHDM_Block = normc(BundleHDM(NamesDelimit(j,1):NamesDelimit(j,2),:));
+    BundleHDM_Block = BundleHDM_Block*sparse(1:(size(U,2)-1), 1:(size(U,2)-1), sqrt(lambda(2:end)));
+    HDBM(j,:) = pdist(BundleHDM_Block', @(x,y) y*x');
 end
 %[U,S,~] = svd(HDBM);
 HDBM_dist = pdist(HDBM);

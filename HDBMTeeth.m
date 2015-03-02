@@ -147,11 +147,14 @@ disp(['Eigs completed in ' num2str(toc) ' seconds']);
 %%% HDBM (Hypoelliptic Diffusion Base Maps)
 %==========================================================================
 sqrtInvD(isinf(sqrtInvD)) = 0;
-% BundleHDM = sqrtInvD*U(:,2:end);
-BundleHDM = sqrtInvD*U(:,2:end)*sparse(1:(size(U,2)-1), 1:(size(U,2)-1), sqrt(lambda(2:end)));
+BundleHDM = sqrtInvD*U(:,2:end);
+% BundleHDM = sqrtInvD*U(:,2:end)*sparse(1:(size(U,2)-1), 1:(size(U,2)-1), sqrt(lambda(2:end)));
 HDBM = zeros(GroupSize, nchoosek(size(BundleHDM,2),2));
 for j=1:GroupSize
-    HDBM(j,:) = pdist(BundleHDM(NamesDelimit(j,1):NamesDelimit(j,2),:)',@(x,y) y*x');
+    BundleHDM_Block = normc(BundleHDM(NamesDelimit(j,1):NamesDelimit(j,2),:));
+    BundleHDM_Block = BundleHDM_Block*sparse(1:(size(U,2)-1), 1:(size(U,2)-1), sqrt(lambda(2:end)));
+    HDBM(j,:) = pdist(BundleHDM_Block', @(x,y) y*x');
+%     HDBM(j,:) = pdist(BundleHDM(NamesDelimit(j,1):NamesDelimit(j,2),:)',@(x,y) y*x');
 end
 HDBM_dist = pdist(HDBM);
 [Y,stress] = mdscale(HDBM_dist,3,'criterion','metricstress');
