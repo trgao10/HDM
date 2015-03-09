@@ -5,9 +5,10 @@ DisplayLayout = options.DisplayLayout;
 GroupSize = length(Names);
 mesh_list = cell(size(Names));
 R = options.R;
-getoptions(options,'DisplayOrient','Horizontal');
+linkCamera = getoptions(options,'linkCamera','on');
+DisplayOrient = getoptions(options,'DisplayOrient','Horizontal');
 
-switch options.DisplayOrient
+switch DisplayOrient
     case 'Vertical'
         DisplayOrder = reshape(1:DisplayLayout(1)*DisplayLayout(2), DisplayLayout(2), DisplayLayout(1));
         DisplayOrder = DisplayOrder';
@@ -60,11 +61,12 @@ for i=1:GroupSize
     if strcmpi(options.names,'on')
         title(mesh_list{i}.Aux.name);
     end
-    
 end
 
-Link = linkprop(h, {'CameraUpVector', 'CameraPosition', 'CameraTarget', 'CameraViewAngle'});
-setappdata(gcf, 'StoreTheLink', Link);
+if strcmpi(linkCamera, 'on')
+    Link = linkprop(h, {'CameraUpVector', 'CameraPosition', 'CameraTarget', 'CameraViewAngle'});
+    setappdata(gcf, 'StoreTheLink', Link);
+end
 
 if (exist('camUpVector', 'var'))
     set(gca, 'CameraUpVector', camUpVector);

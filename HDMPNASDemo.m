@@ -5,38 +5,46 @@ addpath(path,genpath([pwd '/utils/']));
 
 %% setup parameter
 BaseEps = 0.03;
-BNN = 4;
+BNN = 5;
 FibrEps = 1e-3;
-MapType = 'cP';
-FeatureFix = '';
+MapType = 'cPMST';
+FeatureFix = 'Off';
 GroupLevel = 'Genus';
-GroupNames = {'Alouatta'};
-% GroupNames = {'Alouatta','Ateles','Brachyteles','Callicebus','Saimiri'};
+% GroupNames = {'Euprimates','Primates','Dermoptera','Scandentia','Incertae sedis'};
+% GroupNames = {'Purgatorius'};
+% GroupNames = {'Purgatorius','Pronothodectes'};
+% GroupNames = {'Purgatorius','Pronothodectes','Tupaia','Lemur'};
+% GroupNames = {'Purgatorius','Pronothodectes','Tupaia','Lemur',...
+%     'Microcebus','Cantius','Arctocebus','Adapis','Lepilemur',...
+%     'Eosimias','Cynocephalus'};
+% GroupNames = {'Donrussellia','Cheirogaleus','Avahi','Eulemur',...
+%     'Hapalemur','Loris','Nycticebus','Leptacodon'};
+% GroupNames = {'Tupaia','Galago'};
+GroupNames = {'Purgatorius','Tupaia','Pronothodectes','Varecia','Microcebus','Lemur'};
 
 %% setup paths
 base_path = [pwd '/'];
-data_path = '../DATA/HDM/';
+data_path = '../DATA/PNAS/';
 spreadsheet_path = [data_path 'ClassificationTable.xlsx'];
-sample_path = '../cPdist/samples/HDM/';
-result_path = '/media/trgao10/Work/MATLAB/ArchivedResults/HDM/cPdist/';
+sample_path = '../cPdist/samples/Teeth/';
+result_path = ['/media/trgao10/Work/MATLAB/ArchivedResults/Teeth/' MapType '/' 'FeatureFix' FeatureFix '/'];
 soften_path = [result_path 'soften/'];
 % TextureCoords1Path = [result_path 'TextureCoords1/'];
 % TextureCoords2Path = [result_path 'TextureCoords2/'];
 
 %% load taxa codes
-taxa_file = [data_path 'hdm_taxa_table.mat'];
+taxa_file = [data_path 'teeth_taxa_table.mat'];
 taxa_code = load(taxa_file);
 taxa_code = taxa_code.taxa_code;
 GroupSize = length(taxa_code);
-ChunkSize = 25;
+ChunkSize = 55;
 
 %% options that control the diffusion eigenvector visualization
 options.sample_path = sample_path;
-options.DisplayLayout = [5,10];
-options.DisplayOrient = 'Vertical';
+options.DisplayLayout = [4,6];
+options.DisplayOrient = 'Horizontal';
 options.boundary = 'on';
 options.names = 'off';
-options.linkCamera = 'on';
 
 %% useful inline functions
 ChunkIdx = @(TAXAind1,TAXAind2) ceil(((TAXAind1-1)*GroupSize+TAXAind2)/ChunkSize);
@@ -45,12 +53,10 @@ ChunkIdx = @(TAXAind1,TAXAind2) ceil(((TAXAind1-1)*GroupSize+TAXAind2)/ChunkSize
 [~,ClTable,~] = xlsread(spreadsheet_path);
 Names = {};
 NamesByGroup = cell(1,length(GroupNames));
-TaxaByGroup = cell(1,length(GroupNames));
 for j=1:length(GroupNames)
     NamesJ = ClTable(strcmpi(ClTable(1:end,strcmpi(ClTable(1,:),GroupLevel)),GroupNames{j}),1);
     Names = [Names,NamesJ{:}];
     NamesByGroup{j} = NamesJ;
-    TaxaByGroup{j} = cellfun(@(x) find(strcmpi(taxa_code, x)), NamesJ);
 end
 
 GroupSize = length(Names);
@@ -80,18 +86,14 @@ CumsumPerGroupSize = cumsum(PerGroupSize);
 
 %% collection rigid motions
 rigid_motions = load([data_path 'cPMSTinitRms.mat']);
-options.R = rigid_motions.R(TAXAinds,TAXAinds);
-% options.R = rigid_motions.R;
-% options.R = reshape(rigid_motions.R(TAXAinds,TAXAinds),GroupSize,GroupSize);
-% options.R = cell(GroupSize,GroupSize);
-% options.R(:) = {eye(3)};
+options.R = reshape(rigid_motions.R(TAXAinds,TAXAinds),GroupSize,GroupSize);
 
 %% process base diffusion
 load([result_path MapType 'DistMatrix.mat']);
 if strcmpi(MapType,'cP')
-    eval('BaseDistMatrix = cPDistMatrix(TAXAinds,TAXAinds);');
+    eval(['BaseDistMatrix = ' MapType 'DistMatrix(TAXAinds,TAXAinds);']);
 else
-    eval('BaseDistMatrix = ImprDistMatrix(TAXAinds,TAXAinds);');
+    eval(['BaseDistMatrix = ImprDistMatrix(TAXAinds,TAXAinds);']);
 end
 BaseDistMatrix = BaseDistMatrix-diag(diag(BaseDistMatrix));
 
@@ -133,6 +135,7 @@ for j=1:GroupSize
             continue;
         end
         k = rowNNs(j,nns);
+%     for k=(j+1):GroupSize
         G2 = load([sample_path taxa_code{strcmpi(taxa_code,Names{k})} '.mat']); G2 = G2.G;
         
         %%% load texture coordinates
@@ -170,8 +173,8 @@ clear DiffMatrixColIdx DiffMatrixRowIdx DiffMatrixVal rowIdx colIdx val
 clear TextureCoords1Matrix TextureCoords2Matrix
 
 %% eigen-decomposition
-% sqrtD = sparse(1:DiffMatrixSize,1:DiffMatrixSize,sqrt(sum(H)));
-% invD = sparse(1:DiffMatrixSize,1:DiffMatrixSize,1./sum(H));
+sqrtD = sparse(1:DiffMatrixSize,1:DiffMatrixSize,sqrt(sum(H)));
+invD = sparse(1:DiffMatrixSize,1:DiffMatrixSize,1./sum(H));
 sqrtInvD = sparse(1:DiffMatrixSize,1:DiffMatrixSize,1./sqrt(sum(H)));
 % K = invD*H;
 H = sqrtInvD*H*sqrtInvD;
@@ -183,6 +186,10 @@ H = (H+H')/2;
 %     DiffMatrix(:,k) = sqrtInvD(k)*DiffMatrix(:,k);
 % end
 
+% eigopt.isreal = 1;
+% eigopt.issym = 1;
+% eigopt.maxit = 5000;
+% eigopt.disp = 0;
 eigopt = struct('isreal',1,'issym',1,'maxit',5000,'disp',0);
 tic;
 [U, lambda] = eigs(H, 101, 'LM', eigopt);
@@ -191,9 +198,10 @@ disp(['Eigs completed in ' num2str(toc) ' seconds']);
 % clear H
 
 %==========================================================================
-%%% HBDM (Hypoelliptic Base Diffusion Maps)
+%%% HDBM (Hypoelliptic Diffusion Base Maps)
 %==========================================================================
 sqrtInvD(isinf(sqrtInvD)) = 0;
+% BundleHDM = sqrtInvD*U(:,2:end);
 BundleHDM = sqrtInvD*U(:,2:end);
 HDBM = zeros(GroupSize, nchoosek(size(BundleHDM,2),2));
 for j=1:GroupSize
@@ -201,74 +209,41 @@ for j=1:GroupSize
     BundleHDM_Block = BundleHDM_Block*sparse(1:(size(U,2)-1), 1:(size(U,2)-1), sqrt(lambda(2:end)));
     HDBM(j,:) = pdist(BundleHDM_Block', @(x,y) y*x');
 end
+%[U,S,~] = svd(HDBM);
 HDBM_dist = pdist(HDBM);
+% [Y,stress] = mdscale(HDBM_dist,2,'criterion','metricstress');
+% [~, Y] = ClassicalMDS(squareform(HDBM_dist), GroupSize);
 PerGroupDelimit = [[1,CumsumPerGroupSize(1:end-1)+1]', CumsumPerGroupSize'];
 colorsList = [1,0,0;0,1,0;0,0,1;0,1,1;1,1,0;1,0,1;0,0,0];
 colorsList = [colorsList;colorsList/2];
+% colorsList = ['r', 'g', 'b', 'k', 'm', 'c'];
 [Y,stress] = mdscale(HDBM_dist,3,'criterion','metricstress');
-
-% simpNames = cellfun(@(x) strtok(x(end:-1:1),'_'), Names, 'UniformOutput', false);
-% simpNames = cellfun(@(x) x(end:-1:1), simpNames, 'UniformOutput', false);
-
 figure('Name','HDBM');
 for j=1:length(GroupNames)
-    %     scatter(Y(PerGroupDelimit(j,1):PerGroupDelimit(j,2),1),...
-    %         Y(PerGroupDelimit(j,1):PerGroupDelimit(j,2),2),...
-    %         30, colorsList(j,:), 'filled');
     scatter3(Y(PerGroupDelimit(j,1):PerGroupDelimit(j,2),1),...
-        Y(PerGroupDelimit(j,1):PerGroupDelimit(j,2),2),...
-        Y(PerGroupDelimit(j,1):PerGroupDelimit(j,2),3),...
-        30, colorsList(j,:), 'filled');
-%     text(Y(:,1),Y(:,2),Y(:,3),simpNames,'Interpreter','none');
+            Y(PerGroupDelimit(j,1):PerGroupDelimit(j,2),2),...
+            Y(PerGroupDelimit(j,1):PerGroupDelimit(j,2),3),...
+            30, colorsList(j,:), 'filled');
     if (j == 1)
         axis equal
         hold on;
     end
 end
 legend(GroupNames);
-%%%% ATTENTION! %%%%
-%%%% The rows/columns of "BaseDistMatrix" do not follow "taxa_code"!
-%%%% Instead, they follow variable "Names", which is build on group orders.
-nameMode = datacursormode(gcf);
-set(nameMode,'DisplayStyle','window');
-set(nameMode, 'UpdateFcn', {@showMeshName, Y, Names});
 
-[Yb,stress] = mdscale(BaseDistMatrix,3,'criterion','metricstress');
+[Y,stress] = mdscale(BaseDistMatrix,3,'criterion','metricstress');
 figure('Name','BaseDistMatrix');
 for j=1:length(GroupNames)
-    %     scatter(Y(PerGroupDelimit(j,1):PerGroupDelimit(j,2),1),...
-    %             Y(PerGroupDelimit(j,1):PerGroupDelimit(j,2),2),...
-    %             30, colorsList(j,:), 'filled');
-    scatter3(Yb(PerGroupDelimit(j,1):PerGroupDelimit(j,2),1),...
-        Yb(PerGroupDelimit(j,1):PerGroupDelimit(j,2),2),...
-        Yb(PerGroupDelimit(j,1):PerGroupDelimit(j,2),3),...
-        30, colorsList(j,:), 'filled');
+    scatter3(Y(PerGroupDelimit(j,1):PerGroupDelimit(j,2),1),...
+            Y(PerGroupDelimit(j,1):PerGroupDelimit(j,2),2),...
+            Y(PerGroupDelimit(j,1):PerGroupDelimit(j,2),3),...
+            30, colorsList(j,:), 'filled');
     if (j == 1)
         axis equal
         hold on;
     end
 end
 legend(GroupNames);
-
-% W = exp(-BaseWeights.^2/BaseEps);
-% siD = sparse(1:GroupSize,1:GroupSize,1./sqrt(sum(W)));
-% W = siD*W*siD;
-% W = (W+W')/2;
-% [Y, S] = eigs(W, 5, 'LM', eigopt);
-% S = diag(S);
-% Y = siD*Y*sparse(1:5, 1:5, S(1:5));
-% figure('Name','Standard DM');
-% for j=1:length(GroupNames)
-%     scatter3(Y(PerGroupDelimit(j,1):PerGroupDelimit(j,2),2),...
-%             Y(PerGroupDelimit(j,1):PerGroupDelimit(j,2),3),...
-%             Y(PerGroupDelimit(j,1):PerGroupDelimit(j,2),4),...
-%             30, colorsList(j,:), 'filled');
-%     if (j == 1)
-%         axis equal
-%         hold on;
-%     end
-% end
-% legend(GroupNames);
 
 %==========================================================================
 %%% convergence (to statoinary distribution) rate won't work
@@ -316,28 +291,29 @@ legend(GroupNames);
 %==========================================================================
 %%% consistent spectral clustering on each surface
 %==========================================================================
-% SignVectors = sqrtInvD*U(:,2:25);
-% % SignVectors(abs(SignVectors)<1e-10) = 0;
-% % SignVectors = sign(SignVectors);
-% idx = kmeans(SignVectors,10,'MaxIter',1000);
-% %%% TODO: some idx might be +/-Inf, since sqrtInvD might contain +/-Inf
-% %%% better insert a piece of code here assigning a non-nan label to +/-Inf
-% %%% points in idx
-% [InfIdx,~] = find(isinf(SignVectors));
-% InfIdx = unique(InfIdx);
-% for j=1:length(InfIdx)
-%     IdxJ = find(nVListCumsum>=InfIdx(j),1);
-%     NamesJ = Names{IdxJ};
-%     load([sample_path NamesJ '.mat']);
-%     ValidVList = 1:G.nV;
-%     IdxOnG = idx(NamesDelimit(IdxJ,1):NamesDelimit(IdxJ,2));
-%     ValidVList(IdxOnG == idx(InfIdx(j))) = [];
-%     tmpDistMatrix = pdist2(G.V(:,InfIdx(j)-NamesDelimit(IdxJ,1)+1)',G.V(:,ValidVList)');
-%     [~,minInd] = min(tmpDistMatrix);
-%     idx(InfIdx(j)) = idx(ValidVList(minInd)+NamesDelimit(IdxJ,1)-1);
-% end
-% ViewBundleFunc(Names,idx,options);
-% % pause();
+SignVectors = sqrtInvD*U(:,2:15);
+% SignVectors(abs(SignVectors)<1e-10) = 0;
+% SignVectors = sign(SignVectors);
+idx = kmeans(SignVectors,15,'MaxIter',1000);
+%%% TODO: some idx might be +/-Inf, since sqrtInvD might contain +/-Inf
+%%% better insert a piece of code here assigning a non-nan label to +/-Inf
+%%% points in idx
+[InfIdx,~] = find(isinf(SignVectors));
+InfIdx = unique(InfIdx);
+for j=1:length(InfIdx)
+    IdxJ = find(nVListCumsum>=InfIdx(j),1);
+    NamesJ = Names{IdxJ};
+    load([sample_path NamesJ '.mat']);
+    ValidVList = 1:G.nV;
+    IdxOnG = idx(NamesDelimit(IdxJ,1):NamesDelimit(IdxJ,2));
+    ValidVList(IdxOnG == idx(InfIdx(j))) = [];
+    tmpDistMatrix = pdist2(G.V(:,InfIdx(j)-NamesDelimit(IdxJ,1)+1)',G.V(:,ValidVList)');
+    [~,minInd] = min(tmpDistMatrix);
+    idx(InfIdx(j)) = idx(ValidVList(minInd)+NamesDelimit(IdxJ,1)-1);
+end
+ViewBundleFunc(Names,idx,options);
+% pause();
+
 %==========================================================================
 %%% estimate intrinsic dimensionality using multiscale SVD
 %==========================================================================
@@ -367,25 +343,3 @@ legend(GroupNames);
 % end
 
 
-%==========================================================================
-%%% sparse eigenvectors
-%==========================================================================
-rho = 1.0;
-alpha = 1.0;
-
-P = H^2;
-P = [P;ones(1,size(P,2))];
-b = [zeros(size(P,1),1);1];
-
-check_size = size(P,1)-1;
-[x, ~] = basis_pursuit(P, b, rho, alpha);
-x_original = x;
-res = norm(P(1:1:check_size,:)*x_original);
-disp(['before thresholding, ||Ax-x||_2 = ' num2str(res)]);
-
-% 
-% x = threshold_speigv(x, GroupSize);
-% x = x./sum(x);
-% 
-% res = norm(C(1:check_size,:)*x);
-% disp(['after thresholding, ||Ax-x||_2 = ' num2str(res)]);
