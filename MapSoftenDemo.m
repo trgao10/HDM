@@ -10,8 +10,8 @@ Names = {'B03', 'D09'};
 %%% setup paths
 base_path = [pwd '/'];
 data_path = '../DATA/PNAS/';
-sample_path = '../cPdist/samples/Teeth/';
-result_path = '/media/trgao10/Work/MATLAB/ArchivedResults/Teeth/cPDist/';
+sample_path = '../cPdist/samples/PNAS/';
+result_path = '/media/trgao10/Work/MATLAB/ArchivedResults/PNAS/cPDist/';
 TextureCoords1Path = [result_path 'TextureCoords1/'];
 TextureCoords2Path = [result_path 'TextureCoords2/'];
 
@@ -67,7 +67,7 @@ G2 = load([sample_path taxa_code{TAXAind2} '.mat']); G2 = G2.G;
 %%% MapSoften: kernel
 augParam = 1.5;
 [Transplan12,Kernel12,AugKernel12,V1onV2] = MapSoftenKernel(TextureCoords1,TextureCoords2,G2.F,G1.V,G2.V,'auto',augParam);
-CheckInd = 765;
+CheckInd = 466;
 figure;G2.draw();hold on;
 scatter3(V1onV2(1,CheckInd),V1onV2(2,CheckInd),V1onV2(3,CheckInd),10,'g','filled');
 SupportInds = find(AugKernel12(CheckInd,:));
@@ -88,9 +88,9 @@ SymAugKernel12 = max(AugKernel12,AugKernel21');
 SymAugKernel21 = SymAugKernel12';
 % CheckInd = 235;
 figure;G2.draw();hold on;
-scatter3(V1onV2(1,CheckInd),V1onV2(2,CheckInd),V1onV2(3,CheckInd),10,'g','filled');
+scatter3(V1onV2(1,CheckInd),V1onV2(2,CheckInd),V1onV2(3,CheckInd),50,'g','filled');
 SupportInds = find(SymAugKernel12(CheckInd,:));
-scatter3(G2.V(1,SupportInds),G2.V(2,SupportInds),G2.V(3,SupportInds),20,'b','filled');
+scatter3(G2.V(1,SupportInds),G2.V(2,SupportInds),G2.V(3,SupportInds),50,'b','filled');
 
 
 

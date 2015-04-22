@@ -10,9 +10,12 @@ FibrEps = 1e-3;
 MapType = 'cPMST';
 FeatureFix = 'Off';
 GroupLevel = 'Genus';
+% GroupNames = {'Purgatorius','Pronothodectes','Tupaia','Lemur',...
+%     'Microcebus','Cantius','Arctocebus','Adapis','Lepilemur',...
+%     'Eosimias','Cynocephalus','Leptacodon','Nycticebus'};
 % GroupNames = {'Euprimates','Primates','Dermoptera','Scandentia','Incertae sedis'};
 % GroupNames = {'Purgatorius'};
-% GroupNames = {'Purgatorius','Pronothodectes'};
+GroupNames = {'Purgatorius','Pronothodectes'};
 % GroupNames = {'Purgatorius','Pronothodectes','Tupaia','Lemur'};
 % GroupNames = {'Purgatorius','Pronothodectes','Tupaia','Lemur',...
 %     'Microcebus','Cantius','Arctocebus','Adapis','Lepilemur',...
@@ -20,14 +23,14 @@ GroupLevel = 'Genus';
 % GroupNames = {'Donrussellia','Cheirogaleus','Avahi','Eulemur',...
 %     'Hapalemur','Loris','Nycticebus','Leptacodon'};
 % GroupNames = {'Tupaia','Galago'};
-GroupNames = {'Purgatorius','Tupaia','Pronothodectes','Varecia','Microcebus','Lemur'};
+% GroupNames = {'Purgatorius','Tupaia','Pronothodectes','Varecia','Microcebus','Lemur'};
 
 %% setup paths
 base_path = [pwd '/'];
 data_path = '../DATA/PNAS/';
 spreadsheet_path = [data_path 'ClassificationTable.xlsx'];
-sample_path = '../cPdist/samples/Teeth/';
-result_path = ['/media/trgao10/Work/MATLAB/ArchivedResults/Teeth/' MapType '/' 'FeatureFix' FeatureFix '/'];
+sample_path = '../cPdist/samples/PNAS/';
+result_path = ['/media/trgao10/Work/MATLAB/ArchivedResults/PNAS/' MapType '/' 'FeatureFix' FeatureFix '/'];
 soften_path = [result_path 'soften/'];
 % TextureCoords1Path = [result_path 'TextureCoords1/'];
 % TextureCoords2Path = [result_path 'TextureCoords2/'];
@@ -41,7 +44,7 @@ ChunkSize = 55;
 
 %% options that control the diffusion eigenvector visualization
 options.sample_path = sample_path;
-options.DisplayLayout = [4,6];
+options.DisplayLayout = [2,4];
 options.DisplayOrient = 'Horizontal';
 options.boundary = 'on';
 options.names = 'off';
@@ -101,7 +104,7 @@ BaseDistMatrix = BaseDistMatrix-diag(diag(BaseDistMatrix));
 [sDists,rowNNs] = sort(BaseDistMatrix,2);
 sDists = sDists(:,2:(1+BNN));
 rowNNs = rowNNs(:,2:(1+BNN));
-BaseWeights = sparse(repmat((1:GroupSize)',1,BNN),rowNNs,sDists);
+BaseWeights = sparse(repmat((1:GroupSize)',1,BNN),rowNNs,sDists,GroupSize,GroupSize);
 BaseWeights = min(BaseWeights, BaseWeights');
 for j=1:GroupSize
     sDists(j,:) = BaseWeights(j,rowNNs(j,:));
