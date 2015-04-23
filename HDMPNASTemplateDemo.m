@@ -15,8 +15,8 @@ GroupLevel = 'Genus';
 %     'Eosimias','Cynocephalus','Leptacodon','Nycticebus'};
 % GroupNames = {'Euprimates','Primates','Dermoptera','Scandentia','Incertae sedis'};
 % GroupNames = {'Purgatorius'};
-GroupNames = {'Purgatorius','Pronothodectes'};
-% GroupNames = {'Purgatorius','Pronothodectes','Tupaia','Lemur'};
+% GroupNames = {'Purgatorius','Pronothodectes'};
+GroupNames = {'Purgatorius','Pronothodectes','Tupaia','Lemur'};
 % GroupNames = {'Purgatorius','Pronothodectes','Tupaia','Lemur',...
 %     'Microcebus','Cantius','Arctocebus','Adapis','Lepilemur',...
 %     'Eosimias','Cynocephalus'};
@@ -215,7 +215,7 @@ options.pointCloud = 1;
 GM.Write('preTemplate.off','off',options);
 
 %%% manually MLS template in MeshLab
-TemplatePCloud = textread('./Template.off');
+TemplatePCloud = textread('./results/PurProTupLem/Template.off');
 TemplatePCloud = TemplatePCloud(:,1:3);
 
 ShapeVar = zeros(1,MeshList{1}.V);
