@@ -15,7 +15,7 @@ GroupLevel = 'Genus';
 %     'Eosimias','Cynocephalus','Leptacodon','Nycticebus'};
 % GroupNames = {'Euprimates','Primates','Dermoptera','Scandentia','Incertae sedis'};
 % GroupNames = {'Purgatorius'};
-GroupNames = {'Purgatorius','Pronothodectes'};
+% GroupNames = {'Purgatorius','Pronothodectes'};
 % GroupNames = {'Purgatorius','Pronothodectes','Tupaia','Lemur'};
 % GroupNames = {'Purgatorius','Pronothodectes','Tupaia','Lemur',...
 %     'Microcebus','Cantius','Arctocebus','Adapis','Lepilemur',...
@@ -24,13 +24,14 @@ GroupNames = {'Purgatorius','Pronothodectes'};
 %     'Hapalemur','Loris','Nycticebus','Leptacodon'};
 % GroupNames = {'Tupaia','Galago'};
 % GroupNames = {'Purgatorius','Tupaia','Pronothodectes','Varecia','Microcebus','Lemur'};
+GroupNames = {'Purgatorius','Tupaia','Pronothodectes','Varecia'};
 
 %% setup paths
 base_path = [pwd '/'];
 data_path = '../DATA/PNAS/';
 spreadsheet_path = [data_path 'ClassificationTable.xlsx'];
 sample_path = '../cPdist/samples/PNAS/';
-result_path = ['/media/trgao10/Work/MATLAB/ArchivedResults/PNAS/' MapType '/' 'FeatureFix' FeatureFix '/'];
+result_path = ['/gtmp/trgao10/ArchivedResults/PNAS/' MapType '/' 'FeatureFix' FeatureFix '/'];
 soften_path = [result_path 'soften/'];
 % TextureCoords1Path = [result_path 'TextureCoords1/'];
 % TextureCoords2Path = [result_path 'TextureCoords2/'];
@@ -44,7 +45,7 @@ ChunkSize = 55;
 
 %% options that control the diffusion eigenvector visualization
 options.sample_path = sample_path;
-options.DisplayLayout = [2,4];
+options.DisplayLayout = [3,4];
 options.DisplayOrient = 'Horizontal';
 options.boundary = 'on';
 options.names = 'off';
@@ -218,10 +219,39 @@ GM.Write('preTemplate.off','off',options);
 TemplatePCloud = textread('./Template.off');
 TemplatePCloud = TemplatePCloud(:,1:3);
 
-ShapeVar = zeros(1,MeshList{1}.V);
-for j=1:MeshList{1}.nV
-    ShapeVar(j) = norm(MeshList{1}.V(:,j)-vanillaMLS(MeshList{1}.V(:,j), TemplatePCloud'));
+ShapeVar = [];
+for j=1:GroupSize
+    LocalShapeVar = zeros(MeshList{j}.nV,1);
+    LocalTemplate = Template(NamesDelimit(j,1):NamesDelimit(j,2),:)';
+    cback = 0;
+    for k=1:MeshList{j}.nV
+        LocalShapeVar(k) = norm(LocalTemplate(:,k)-vanillaMLS(LocalTemplate(:,k), TemplatePCloud'));
+        
+        for cc=1:cback
+            fprintf('\b');
+        end
+        cback = fprintf(['%4d/' num2str(MeshList{j}.nV) ' done.\n'], k);
+    end
+    
+%     invalidValues = isinf(LocalShapeVar) & isnan(LocalShapeVar);
+%     LocalShapeVar(invalidValues) = mean(LocalShapeVar(~invalidValues));
+%     Color = LocalShapeVar;
+    % Color = (MeshList{1}.A*ShapeVar')';
+    % Color = log(Color);
+    % Color = log(Color)-min(log(Color));
+    % Color = log(ShapeVar)-min(log(ShapeVar));
+    % Color = (Color-mean(Color))/std(Color);
+%     Color = clamp(Color, mean(Color)-2*std(Color), mean(Color)+2*std(Color));
+    ShapeVar = [ShapeVar;LocalShapeVar];
+%     MeshList{1}.ViewFunctionOnMesh(Color', struct('mode','native'));
 end
+
+invalidValues = (isinf(ShapeVar) | isnan(ShapeVar));
+ShapeVar(invalidValues) = mean(ShapeVar(~invalidValues));
+Color = ShapeVar;
+% Color = clamp(ShapeVar, mean(ShapeVar)-3*std(ShapeVar), mean(ShapeVar)+3*std(ShapeVar));
+
+ViewBundleFunc(Names, Color, options);
 
 % Template = sqrtInvD*U(:,2:50);
 % colors = [1,0,0;0,1,0;0,0,1;1,1,0;1,0,1;0,1,1;1,1,1];

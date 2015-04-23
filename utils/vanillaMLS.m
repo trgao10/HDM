@@ -10,6 +10,11 @@ if (size(pCloud,1) > size(pCloud,2))
     pCloud = pCloud';
 end
 
+if (sum(isinf(pt))>0)
+    projPt = Inf(size(pt));
+    return;
+end
+
 nV = size(pCloud,2);
 
 %%% initial guess
@@ -28,14 +33,16 @@ sF = @(t) ValueOnLine(pt, pCloud, t, EstNormal, iSigma);
 t = fminbnd(sF,-iSigma,iSigma);
 initProjPt = Proj(pt,t,EstNormal);
 
-A = sort(squareform(pdist(pCloud'))+diag(Inf(nV,1)),2);
-sigma = mean(A(:,10)); %% use the mean distance of each vertex to its 5-th neighbor as bandwidth
-F = @(p) ValueAtPoint(pt, pCloud, p, sigma);
-% options = optimoptions(@fminunc, 'Algorithm', 'trust-region', 'GradObj', 'on', 'Display', 'none');
-options = optimoptions(@fminunc, 'Algorithm', 'quasi-newton', 'GradObj', 'on', 'Display', 'none');
-% options = optimoptions(@fminunc, 'Algorithm', 'quasi-newton', 'Display', 'none');
-projPt = fminunc(F,initProjPt,options);
-% F = @(p) ((pt-p)'*(pCloud-repmat(p,1,nV))).^2./((pt-p)'*(pt-p))*SumNor(exp(-pdist2(p',pCloud').^2/sigma^2)');
+projPt = initProjPt;
+
+% A = sort(squareform(pdist(pCloud'))+diag(Inf(nV,1)),2);
+% sigma = mean(A(:,10)); %% use the mean distance of each vertex to its 5-th neighbor as bandwidth
+% F = @(p) ValueAtPoint(pt, pCloud, p, sigma);
+% % options = optimoptions(@fminunc, 'Algorithm', 'trust-region', 'GradObj', 'on', 'Display', 'none');
+% options = optimoptions(@fminunc, 'Algorithm', 'quasi-newton', 'GradObj', 'on', 'Display', 'none');
+% % options = optimoptions(@fminunc, 'Algorithm', 'quasi-newton', 'Display', 'none');
+% projPt = fminunc(F,initProjPt,options);
+% % F = @(p) ((pt-p)'*(pCloud-repmat(p,1,nV))).^2./((pt-p)'*(pt-p))*SumNor(exp(-pdist2(p',pCloud').^2/sigma^2)');
 
 end
 
