@@ -20,11 +20,14 @@ GroupLevel = 'Genus';
 % GroupNames = {'Purgatorius','Pronothodectes','Tupaia','Lemur',...
 %     'Microcebus','Cantius','Arctocebus','Adapis','Lepilemur',...
 %     'Eosimias','Cynocephalus'};
+GroupNames = {'Purgatorius','Pronothodectes','Tupaia','Lemur',...
+    'Microcebus','Cantius','Arctocebus','Adapis','Lepilemur',...
+    'Eosimias','Cynocephalus','Varecia'};
 % GroupNames = {'Donrussellia','Cheirogaleus','Avahi','Eulemur',...
 %     'Hapalemur','Loris','Nycticebus','Leptacodon'};
 % GroupNames = {'Tupaia','Galago'};
-% GroupNames = {'Purgatorius','Tupaia','Pronothodectes','Varecia','Microcebus','Lemur'};
-GroupNames = {'Purgatorius','Tupaia','Pronothodectes','Varecia'};
+% GroupNames = {'Purgatorius','Pronothodectes','Tupaia','Microcebus','Lemur','Varecia'};
+% GroupNames = {'Purgatorius','Pronothodectes','Tupaia','Microcebus'};
 
 %% setup paths
 base_path = [pwd '/'];
@@ -34,6 +37,9 @@ sample_path = '../cPdist/samples/PNAS/';
 result_path = ['/gtmp/trgao10/ArchivedResults/PNAS/' MapType '/' 'FeatureFix' FeatureFix '/'];
 % result_path = ['/media/trgao10/Work/MATLAB/ArchivedResults/PNAS/' MapType '/' 'FeatureFix' FeatureFix '/'];
 soften_path = [result_path 'soften/'];
+
+viz_path = './results/TwelveLemurs/';
+touch(viz_path);
 % TextureCoords1Path = [result_path 'TextureCoords1/'];
 % TextureCoords2Path = [result_path 'TextureCoords2/'];
 
@@ -46,8 +52,8 @@ ChunkSize = 55;
 
 %% options that control the diffusion eigenvector visualization
 options.sample_path = sample_path;
-options.DisplayLayout = [4,4];
-options.DisplayOrient = 'Horizontal';
+options.DisplayLayout = [4,12];
+options.DisplayOrient = 'Vertical';
 options.boundary = 'on';
 options.names = 'off';
 
@@ -205,7 +211,7 @@ for j=1:length(GroupNames)
     T(r,:) = [];
     GM = Mesh('VF',T',[1;1;1]);
     options.pointCloud = 1;
-    GM.Write([GroupNames{j} '.off'],'off',options);    
+    GM.Write([viz_path GroupNames{j} '.off'],'off',options);    
 %     figure;scatter3(LocalTemplate(:,1),LocalTemplate(:,2),LocalTemplate(:,3),1,colors(j,:),'filled');
 end
 
@@ -214,13 +220,14 @@ T = Template;
 T(r,:) = [];
 GM = Mesh('VF',T',[1;1;1]);
 options.pointCloud = 1;
-GM.Write('preTemplate.off','off',options);
+GM.Write([viz_path 'preTemplate.off'],'off',options);
 
 disp('RIMLS in MeshLab!');
 keyboard
 
+%%
 %%% manually MLS template in MeshLab
-TemplatePCloud = textread('./results/PurTupProVar/Template.off');
+TemplatePCloud = textread([viz_path 'Template.off']);
 TemplatePCloud = TemplatePCloud(:,1:3);
 
 ShapeVar = [];
@@ -252,93 +259,10 @@ end
 
 invalidValues = (isinf(ShapeVar) | isnan(ShapeVar));
 ShapeVar(invalidValues) = mean(ShapeVar(~invalidValues));
-Color = ShapeVar;
-% Color = clamp(ShapeVar, mean(ShapeVar)-3*std(ShapeVar), mean(ShapeVar)+3*std(ShapeVar));
+% Color = ShapeVar;
+Color = clamp(ShapeVar, mean(ShapeVar)-2*std(ShapeVar), mean(ShapeVar)+2*std(ShapeVar));
 
 ViewBundleFunc(Names, Color, options);
 
 save('TemplateVar.mat','Names','Color','options','ShapeVar','MeshList');
-
-% Template = sqrtInvD*U(:,2:50);
-% colors = [1,0,0;0,1,0;0,0,1;1,1,0;1,0,1;0,1,1;1,1,1];
-% for j=1:length(GroupNames)
-%     LocalTemplate = Template(GroupDelimit(j,1):GroupDelimit(j,2),:);
-%     [r,~] = find(isinf(LocalTemplate));
-%     LocalTemplate(r,:) = [];
-%     figure;scatter3(LocalTemplate(:,1),LocalTemplate(:,2),LocalTemplate(:,3),1,colors(j,:),'filled');
-% end
-% pause();
-% % atria = nn_prepare(Template);
-% % [count, neighbors] = range_search(Template, atria, 1:size(Template,1),0.01,0);
-% figure;scatter3(Template(:,1),Template(:,2),Template(:,3),1,'k','filled');
-% T3 = Template(:,1:3);
-% [r,c] = find(isinf(T3));
-% T3(r,:) = [];
-% GM = Mesh('VF',T3',[1;1;1]);
-% options.pointCloud = 1;
-% GM.Write('Template3.off','off',options);
-% pause();
-
-% hold on;
-% [~,Inds] = sort(count);
-% MaxInds = Inds(end-10:end);
-% scatter3(Template(MaxInds,1),Template(MaxInds,2),Template(MaxInds,3),50,'r','filled');
-% [mu,Sigma,z] = GMM(Template,5);
-% scatter3(mu(:,1),mu(:,2),mu(:,3),50,'r','filled');
-% ViewBundleFunc(Names,z,options);
-
-%==========================================================================
-%%% consistent spectral clustering on each surface
-%==========================================================================
-% SignVectors = sqrtInvD*U(:,2:15);
-% % SignVectors(abs(SignVectors)<1e-10) = 0;
-% % SignVectors = sign(SignVectors);
-% idx = kmeans(SignVectors,15,'MaxIter',1000);
-% %%% TODO: some idx might be +/-Inf, since sqrtInvD might contain +/-Inf
-% %%% better insert a piece of code here assigning a non-nan label to +/-Inf
-% %%% points in idx
-% [InfIdx,~] = find(isinf(SignVectors));
-% InfIdx = unique(InfIdx);
-% for j=1:length(InfIdx)
-%     IdxJ = find(nVListCumsum>=InfIdx(j),1);
-%     NamesJ = Names{IdxJ};
-%     load([sample_path NamesJ '.mat']);
-%     ValidVList = 1:G.nV;
-%     IdxOnG = idx(NamesDelimit(IdxJ,1):NamesDelimit(IdxJ,2));
-%     ValidVList(IdxOnG == idx(InfIdx(j))) = [];
-%     tmpDistMatrix = pdist2(G.V(:,InfIdx(j)-NamesDelimit(IdxJ,1)+1)',G.V(:,ValidVList)');
-%     [~,minInd] = min(tmpDistMatrix);
-%     idx(InfIdx(j)) = idx(ValidVList(minInd)+NamesDelimit(IdxJ,1)-1);
-% end
-% ViewBundleFunc(Names,idx,options);
-% % pause();
-
-%==========================================================================
-%%% estimate intrinsic dimensionality using multiscale SVD
-%==========================================================================
-% EstDimOpts = struct('NumberOfTrials',1,'verbose',0,'MAXDIM',100,...
-%                     'MAXAMBDIM',100,'Ptwise',true,'NetsOpts',[],...
-%                     'UseSmoothedS',true, 'EnlargeScales',true );
-% Template = SignVectors;
-% OriginalIdx = 1:size(Template,1);
-% Template(InfIdx,:) = [];
-% OriginalIdx(InfIdx) = [];
-% EstDimOpts.RandomizedSVDThres = min([size(Template,1),size(Template,2),100]);
-% [EstDim,EstDimStats,Stats] = EstDim_MSVD(Template', EstDimOpts);
-% %%% TODO: write a routine to extract submesh according to specified
-% %%% vertices/faces/both
-% pause();
-
-%==========================================================================
-%%% view eigenvectors
-%==========================================================================
-% eigen_ind = 0;
-% while (1)
-%     eigen_ind = eigen_ind+1;
-%     tic;
-%     ViewBundleFunc(Names,sqrtInvD*U(:,eigen_ind),options);
-%     toc;
-%     pause;
-% end
-
 
