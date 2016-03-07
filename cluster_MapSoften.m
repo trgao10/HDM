@@ -4,22 +4,15 @@ close all;
 path(pathdef);
 addpath(path,genpath([pwd '/utils/']));
 
-%%% pick ImprType and FeatureFix
-ImprType = 'MST'; % if 'Viterbi', should also specify "ViterbiAngle"!
-FeatureFix = 'On';
-
 %%% setup paths
 base_path = [pwd '/'];
-data_path = '../DATA/PNAS/';
-% data_path = '../DATA/Clement/';
-rslt_path = '~/Work/MATLAB/Results/PNAS';
-% rslt_path = '~/Work/MATLAB/Results/Clement/';
+data_path = '../DATA/HDM/';
+rslt_path = '/gtmp/trgao10/ArchivedResults/HDM/cPMST/FeatureFixOff/';
 
 cluster_path = [base_path 'cluster/'];
-samples_path = [data_path 'samples/'];
+samples_path = '~/Work/MATLAB/cPdist/samples/HDM/';
 
-TaxaCode_path = [data_path 'teeth_taxa_table.mat'];
-% TaxaCode_path = [data_path 'clement_taxa_table.mat'];
+TaxaCode_path = [data_path 'hdm_taxa_table.mat'];
 TextureCoords1_path = [rslt_path '/TextureCoords1/'];
 TextureCoords2_path = [rslt_path '/TextureCoords2/'];
 
@@ -45,11 +38,8 @@ command_text = ['!rm -f ' soften_path '*']; eval(command_text); disp(command_tex
 taxa_code = load(TaxaCode_path);
 taxa_code = taxa_code.taxa_code;
 GroupSize = length(taxa_code);
-chunk_size = 55; %% PNAS
-NumLandmarks = 16; %% PNAS
+chunk_size = 25; %% HDM
 FibrEps = 1e-3;
-% chunk_size = 20; %% Clement
-% NumLandmark = 7; %% Clement
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

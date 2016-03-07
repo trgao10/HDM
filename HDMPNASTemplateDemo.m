@@ -264,5 +264,5 @@ Color = clamp(ShapeVar, mean(ShapeVar)-2*std(ShapeVar), mean(ShapeVar)+2*std(Sha
 
 ViewBundleFunc(Names, Color, options);
 
-save('TemplateVar.mat','Names','Color','options','ShapeVar','MeshList');
+save([viz_path 'TemplateVar.mat'],'Names','Color','options','ShapeVar','MeshList');
 
