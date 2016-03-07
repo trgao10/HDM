@@ -4,13 +4,13 @@ path(pathdef);
 addpath(path,genpath([pwd '/utils/']));
 
 %% setup parameter
-BaseEps = 0.03;
+BaseEps = 0.04;
 BNN = 4;
 FibrEps = 1e-3;
-MapType = 'cP';
+MapType = 'cPMST';
 FeatureFix = '';
 GroupLevel = 'Genus';
-% GroupNames = {'Alouatta'};
+% GroupNames = {'Alouatta', 'Brachyteles'};
 GroupNames = {'Alouatta','Ateles','Brachyteles','Callicebus','Saimiri'};
 
 %% setup paths
@@ -18,7 +18,8 @@ base_path = [pwd '/'];
 data_path = '../DATA/HDM/';
 spreadsheet_path = [data_path 'ClassificationTable.xlsx'];
 sample_path = '../cPdist/samples/HDM/';
-result_path = '/media/trgao10/Work/MATLAB/ArchivedResults/HDM/cPdist/';
+% result_path = '/media/trgao10/Work/MATLAB/ArchivedResults/HDM/cPdist/';
+result_path = '/media/trgao10/Work/MATLAB/ArchivedResults/HDM/cPMST/FeatureFixOff/';
 soften_path = [result_path 'soften/'];
 % TextureCoords1Path = [result_path 'TextureCoords1/'];
 % TextureCoords2Path = [result_path 'TextureCoords2/'];
@@ -33,7 +34,7 @@ ChunkSize = 25;
 %% options that control the diffusion eigenvector visualization
 options.sample_path = sample_path;
 options.DisplayLayout = [5,10];
-options.DisplayOrient = 'Vertical';
+options.DisplayOrient = 'Horizontal';
 options.boundary = 'on';
 options.names = 'off';
 options.linkCamera = 'on';
@@ -192,6 +193,7 @@ H = (H+H')/2;
 eigopt = struct('isreal',1,'issym',1,'maxit',5000,'disp',0);
 tic;
 [U, lambda] = eigs(H, 101, 'LM', eigopt);
+% [U, lambda] = eigs(H, 51, 'LM', eigopt);
 lambda = diag(lambda);
 disp(['Eigs completed in ' num2str(toc) ' seconds']);
 % clear H
@@ -209,6 +211,7 @@ for j=1:GroupSize
     HBDM(j,:) = pdist(BundleHDM_Block', @(x,y) y*x');
 end
 HBDM_dist = pdist(HBDM);
+save('HBDM', 'HBDM');
 [Yhbdm,stress] = mdscale(HBDM_dist,3,'criterion','metricstress');
 
 % simpNames = cellfun(@(x) strtok(x(end:-1:1),'_'), Names, 'UniformOutput', false);
@@ -317,6 +320,8 @@ end
 % CaptureFigVid([-20,10;-380,10], 'DMMDS', OptionZ);
 legend(GroupNames);
 
+pause();
+
 %==========================================================================
 %%% convergence (to stationary distribution) rate won't work
 %%% because K has too many eivenvaluves close to 1
@@ -363,27 +368,36 @@ legend(GroupNames);
 %==========================================================================
 %%% consistent spectral clustering on each surface
 %==========================================================================
-% SignVectors = sqrtInvD*U(:,2:25);
-% % SignVectors(abs(SignVectors)<1e-10) = 0;
-% % SignVectors = sign(SignVectors);
-% idx = kmeans(SignVectors,10,'MaxIter',1000);
-% %%% TODO: some idx might be +/-Inf, since sqrtInvD might contain +/-Inf
-% %%% better insert a piece of code here assigning a non-nan label to +/-Inf
-% %%% points in idx
-% [InfIdx,~] = find(isinf(SignVectors));
-% InfIdx = unique(InfIdx);
-% for j=1:length(InfIdx)
-%     IdxJ = find(nVListCumsum>=InfIdx(j),1);
-%     NamesJ = Names{IdxJ};
-%     load([sample_path NamesJ '.mat']);
-%     ValidVList = 1:G.nV;
-%     IdxOnG = idx(NamesDelimit(IdxJ,1):NamesDelimit(IdxJ,2));
-%     ValidVList(IdxOnG == idx(InfIdx(j))) = [];
-%     tmpDistMatrix = pdist2(G.V(:,InfIdx(j)-NamesDelimit(IdxJ,1)+1)',G.V(:,ValidVList)');
-%     [~,minInd] = min(tmpDistMatrix);
-%     idx(InfIdx(j)) = idx(ValidVList(minInd)+NamesDelimit(IdxJ,1)-1);
-% end
-% ViewBundleFunc(Names,idx,options);
+% BundleHDM = sqrtInvD*U(:,2:25);
+SignVectors = sqrtInvD*U(:,2:25);
+% SignVectors(abs(SignVectors)<1e-10) = 0;
+% SignVectors = sign(SignVectors);
+% SignVectors = BundleHDM;
+sumd = Inf;
+for j=1:20
+    [t_idx, ~, t_sumd] = kmeans(SignVectors,12,'MaxIter',1000);
+    if sum(t_sumd) < sum(sumd)
+        idx = t_idx;
+        sumd = t_sumd;
+    end
+end
+%%% TODO: some idx might be +/-Inf, since sqrtInvD might contain +/-Inf
+%%% better insert a piece of code here assigning a non-nan label to +/-Inf
+%%% points in idx
+[InfIdx,~] = find(isinf(SignVectors));
+InfIdx = unique(InfIdx);
+for j=1:length(InfIdx)
+    IdxJ = find(nVListCumsum>=InfIdx(j),1);
+    NamesJ = Names{IdxJ};
+    load([sample_path NamesJ '.mat']);
+    ValidVList = 1:G.nV;
+    IdxOnG = idx(NamesDelimit(IdxJ,1):NamesDelimit(IdxJ,2));
+    ValidVList(IdxOnG == idx(InfIdx(j))) = [];
+    tmpDistMatrix = pdist2(G.V(:,InfIdx(j)-NamesDelimit(IdxJ,1)+1)',G.V(:,ValidVList)');
+    [~,minInd] = min(tmpDistMatrix);
+    idx(InfIdx(j)) = idx(ValidVList(minInd)+NamesDelimit(IdxJ,1)-1);
+end
+ViewBundleFunc(Names,idx,options);
 % % pause();
 %==========================================================================
 %%% estimate intrinsic dimensionality using multiscale SVD

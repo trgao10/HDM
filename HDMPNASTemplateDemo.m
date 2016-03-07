@@ -223,6 +223,10 @@ GM.Write([viz_path 'preTemplate.off'],'off',options);
 
 disp('RIMLS in MeshLab!');
 keyboard
+%%% take preTemplate.off into MeshLab and apply RIMLS
+%%% store the result into Template.off
+%%% "diff Template.off preTemplte.off" check different
+%%% delete first two rows in Template.off
 
 %%
 %%% manually MLS template in MeshLab
@@ -263,5 +267,5 @@ Color = clamp(ShapeVar, mean(ShapeVar)-2*std(ShapeVar), mean(ShapeVar)+2*std(Sha
 
 ViewBundleFunc(Names, Color, options);
 
-save('TemplateVar.mat','Names','Color','options','ShapeVar','MeshList');
+save([viz_path 'TemplateVar.mat'],'Names','Color','options','ShapeVar','MeshList');
 
