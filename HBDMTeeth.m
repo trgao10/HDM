@@ -14,8 +14,8 @@ FeatureFix = 'Off';
 base_path = [pwd '/'];
 data_path = '../DATA/PNAS/';
 spreadsheet_path = [data_path 'ClassificationTable.xlsx'];
-sample_path = '../cPdist/samples/Teeth/';
-result_path = ['/media/trgao10/Work/MATLAB/ArchivedResults/Teeth/' MapType '/' 'FeatureFix' FeatureFix '/'];
+sample_path = '../cPdist/samples/PNAS/';
+result_path = ['/media/trgao10/Work/MATLAB/ArchivedResults/PNAS/' MapType '/' 'FeatureFix' FeatureFix '/'];
 soften_path = [result_path 'soften/'];
 
 %% load taxa codes

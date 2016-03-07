@@ -224,6 +224,10 @@ GM.Write([viz_path 'preTemplate.off'],'off',options);
 
 disp('RIMLS in MeshLab!');
 keyboard
+%%% take preTemplate.off into MeshLab and apply RIMLS
+%%% store the result into Template.off
+%%% "diff Template.off preTemplte.off" check different
+%%% delete first two rows in Template.off
 
 %%
 %%% manually MLS template in MeshLab

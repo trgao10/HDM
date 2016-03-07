@@ -3,7 +3,7 @@ close all;
 path(pathdef);
 addpath(path,genpath([pwd '/utils/']));
 
-%% setup parameter
+%% setup parameters
 BaseEps = 0.03;
 BNN = 5;
 FibrEps = 1e-3;
@@ -40,7 +40,7 @@ taxa_file = [data_path 'teeth_taxa_table.mat'];
 taxa_code = load(taxa_file);
 taxa_code = taxa_code.taxa_code;
 GroupSize = length(taxa_code);
-ChunkSize = 55;
+ChunkSize = 55; %% PNAS
 
 %% options that control the diffusion eigenvector visualization
 options.sample_path = sample_path;
@@ -189,10 +189,6 @@ H = (H+H')/2;
 %     DiffMatrix(:,k) = sqrtInvD(k)*DiffMatrix(:,k);
 % end
 
-% eigopt.isreal = 1;
-% eigopt.issym = 1;
-% eigopt.maxit = 5000;
-% eigopt.disp = 0;
 eigopt = struct('isreal',1,'issym',1,'maxit',5000,'disp',0);
 tic;
 [U, lambda] = eigs(H, 101, 'LM', eigopt);
@@ -201,7 +197,7 @@ disp(['Eigs completed in ' num2str(toc) ' seconds']);
 % clear H
 
 %==========================================================================
-%%% HDBM (Hypoelliptic Diffusion Base Maps)
+%%% HDBM (Horizontal Diffusion Base Maps)
 %==========================================================================
 sqrtInvD(isinf(sqrtInvD)) = 0;
 % BundleHDM = sqrtInvD*U(:,2:end);
