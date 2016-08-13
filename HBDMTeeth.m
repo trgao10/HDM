@@ -5,17 +5,17 @@ addpath(path,genpath([pwd '/utils/']));
 
 %% setup parameter
 BaseEps = 0.03;
-BNN = 7;
+BNN = 8;
 FibrEps = 1e-3;
 MapType = 'cPMST';
-FeatureFix = 'Off';
+FeatureFixFlag = 'Off';
 
 %% setup paths
 base_path = [pwd '/'];
 data_path = '../DATA/PNAS/';
 spreadsheet_path = [data_path 'ClassificationTable.xlsx'];
 sample_path = '../cPdist/samples/PNAS/';
-result_path = ['/media/trgao10/Work/MATLAB/ArchivedResults/PNAS/' MapType '/' 'FeatureFix' FeatureFix '/'];
+result_path = ['/xtmp/ArchivedResults/PNAS/' MapType '/' 'FeatureFix' FeatureFixFlag '/'];
 soften_path = [result_path 'soften/'];
 
 %% load taxa codes
@@ -159,5 +159,5 @@ end
 HDBM_dist = pdist(HDBM);
 [Y,stress] = mdscale(HDBM_dist,3,'criterion','metricstress');
 
-save('PNAS_HDBM.mat', 'lambda', 'U', 'HDBM', 'Names', 'Y');
+save(['PNAS_HBDM_' MapType '_FeatureFix' FeatureFixFlag '_BNN' num2str(BNN) '.mat'], 'lambda', 'U', 'HDBM', 'Names', 'Y');
 
