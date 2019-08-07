@@ -1,4 +1,4 @@
 HDM
 ===
 
-Hypoelliptic Diffusion Maps
+Horizontal Diffusion Maps
